@@ -55,7 +55,12 @@ exit 0
 	        $<$<COMPILE_LANGUAGE:Fortran>:-Minline>
     	)
         add_dependencies(${ARGS_TARGET} ${ARGS_TARGET}_lib)
-        target_compile_options(${ARGS_TARGET} PRIVATE -Minline=lib:${ARGS_TARGET}_lib,except:f_is_default,except:s_compute_dt,except:my_inquire,except:s_mpi_abort,except:s_mpi_barrier,except:s_prohibit_abort,except:s_int_to_str,except:s_associate_cbc_coefficients_pointers)
+        # smallsize:64 always inlines small `!$acc routine seq` helpers (s_compute_speed_of_sound, size 39;
+        # s_accumulate_mixture_properties, size 13). Without it nvfortran exhausts its per-procedure inline budget
+        # inside very large kernel hosts such as s_hllc_riemann_solver (12 kernels) and emits real device calls
+        # for the later kernels; the by-reference arguments of those calls force the thread-private state into
+        # local memory.
+        target_compile_options(${ARGS_TARGET} PRIVATE -Minline=lib:${ARGS_TARGET}_lib,smallsize:64,except:f_is_default,except:s_compute_dt,except:my_inquire,except:s_mpi_abort,except:s_mpi_barrier,except:s_prohibit_abort,except:s_int_to_str,except:s_associate_cbc_coefficients_pointers)
 
         # Exclude m_start_up and m_cbc from cross-file inlining: these are
         # initialization/boundary code that trigger NVHPC 25.x fort2 ICE when
