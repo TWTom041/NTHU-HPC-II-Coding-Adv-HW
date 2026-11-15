@@ -20,8 +20,11 @@ module m_riemann_state
     !! direct evaluation of source terms, by using the left and right states given in qK_prim_rs_vf, dqK_prim_ds_vf where ds = dx,
     !! dy or dz.
     !> @{
-    real(wp), allocatable, dimension(:,:,:,:) :: flux_rsx_vf, flux_src_rsx_vf
+    !! TARGET: m_rhs points flux_n / flux_src_n (advection rows) into these buffers (s_alias_riemann_flux_buffers) so the
+    !! finalize step does not have to copy them; flux_rsx_aliased records that this happened.
+    real(wp), allocatable, target, dimension(:,:,:,:) :: flux_rsx_vf, flux_src_rsx_vf
     $:GPU_DECLARE(create='[flux_rsx_vf, flux_src_rsx_vf]')
+    logical :: flux_rsx_aliased = .false.
     !> @}
 
     !> The cell-boundary values of the geometrical source flux that are computed through the chosen Riemann problem solver by using
@@ -1183,9 +1186,17 @@ contains
                 #:endif
                 integer, intent(in) :: norm_dir
                 integer             :: i, j, k, l  !< Generic loop iterators
+                logical             :: copy_flux   !< .false. when flux_vf / flux_src_vf already alias the *_rsx_vf buffers
+
+                #:if SUFFIX == ''
+                    copy_flux = .not. flux_rsx_aliased
+                #:else
+                    copy_flux = .true.
+                #:endif
                 ! Reshaping Outputted Data in y-direction
 
                 if (norm_dir == 2) then
+                    if (copy_flux) then
                     $:GPU_PARALLEL_LOOP(collapse=4)
                     do i = 1, sys_size
                         do l = is3%beg, is3%end
@@ -1197,6 +1208,7 @@ contains
                         end do
                     end do
                     $:END_GPU_PARALLEL_LOOP()
+                    end if
 
                     if (cyl_coord) then
                         $:GPU_PARALLEL_LOOP(collapse=4)
@@ -1213,6 +1225,7 @@ contains
                     end if
 
                     #:if SUFFIX == ''
+                        if (copy_flux) then
                         $:GPU_PARALLEL_LOOP(collapse=3)
                         do l = is3%beg, is3%end
                             do j = is1%beg, is1%end
@@ -1222,11 +1235,12 @@ contains
                             end do
                         end do
                         $:END_GPU_PARALLEL_LOOP()
+                        end if
 
                         ! Copy the per-fluid flux_src entries only for the alpha-interface representation. HLLD
                         ! (adv_src_mode_none) writes only the adv%beg row, so its per-fluid entries are never
                         ! initialized and must not be copied out; nothing consumes them in that mode.
-                        if (adv_src_mode == adv_src_mode_alpha_iface) then
+                        if (copy_flux .and. adv_src_mode == adv_src_mode_alpha_iface) then
                             $:GPU_PARALLEL_LOOP(collapse=4)
                             do i = eqn_idx%adv%beg + 1, eqn_idx%adv%end
                                 do l = is3%beg, is3%end
@@ -1242,6 +1256,7 @@ contains
                     #:endif
                     ! Reshaping Outputted Data in z-direction
                 else if (norm_dir == 3) then
+                    if (copy_flux) then
                     $:GPU_PARALLEL_LOOP(collapse=4)
                     do i = 1, sys_size
                         do j = is1%beg, is1%end
@@ -1253,6 +1268,7 @@ contains
                         end do
                     end do
                     $:END_GPU_PARALLEL_LOOP()
+                    end if
                     #:if SUFFIX == ''
                         if (grid_geometry == 3) then
                             $:GPU_PARALLEL_LOOP(collapse=4)
@@ -1268,6 +1284,7 @@ contains
                             $:END_GPU_PARALLEL_LOOP()
                         end if
 
+                        if (copy_flux) then
                         $:GPU_PARALLEL_LOOP(collapse=3)
                         do j = is1%beg, is1%end
                             do k = is2%beg, is2%end
@@ -1277,11 +1294,12 @@ contains
                             end do
                         end do
                         $:END_GPU_PARALLEL_LOOP()
+                        end if
 
                         ! Copy the per-fluid flux_src entries only for the alpha-interface representation. HLLD
                         ! (adv_src_mode_none) writes only the adv%beg row, so its per-fluid entries are never
                         ! initialized and must not be copied out; nothing consumes them in that mode.
-                        if (adv_src_mode == adv_src_mode_alpha_iface) then
+                        if (copy_flux .and. adv_src_mode == adv_src_mode_alpha_iface) then
                             $:GPU_PARALLEL_LOOP(collapse=4)
                             do i = eqn_idx%adv%beg + 1, eqn_idx%adv%end
                                 do j = is1%beg, is1%end
@@ -1296,6 +1314,7 @@ contains
                         end if
                     #:endif
                 else if (norm_dir == 1) then
+                    if (copy_flux) then
                     $:GPU_PARALLEL_LOOP(collapse=4)
                     do i = 1, sys_size
                         do l = is3%beg, is3%end
@@ -1307,8 +1326,10 @@ contains
                         end do
                     end do
                     $:END_GPU_PARALLEL_LOOP()
+                    end if
 
                     #:if SUFFIX == ''
+                        if (copy_flux) then
                         $:GPU_PARALLEL_LOOP(collapse=3)
                         do l = is3%beg, is3%end
                             do k = is2%beg, is2%end
@@ -1318,11 +1339,12 @@ contains
                             end do
                         end do
                         $:END_GPU_PARALLEL_LOOP()
+                        end if
 
                         ! Copy the per-fluid flux_src entries only for the alpha-interface representation. HLLD
                         ! (adv_src_mode_none) writes only the adv%beg row, so its per-fluid entries are never
                         ! initialized and must not be copied out; nothing consumes them in that mode.
-                        if (adv_src_mode == adv_src_mode_alpha_iface) then
+                        if (copy_flux .and. adv_src_mode == adv_src_mode_alpha_iface) then
                             $:GPU_PARALLEL_LOOP(collapse=4)
                             do i = eqn_idx%adv%beg + 1, eqn_idx%adv%end
                                 do l = is3%beg, is3%end

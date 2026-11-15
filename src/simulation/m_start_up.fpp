@@ -944,6 +944,7 @@ contains
             end if
             call s_initialize_cbc_module()
             call s_initialize_riemann_solvers_module()
+            call s_alias_riemann_flux_buffers()
         end if
         if (int_comp > 0) call s_initialize_thinc_module()
         call s_initialize_derived_variables()

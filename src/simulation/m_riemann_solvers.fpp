@@ -103,9 +103,14 @@ contains
         is1%beg = -1; is2%beg = 0; is3%beg = 0
         is1%end = m; is2%end = n; is3%end = p
 
-        @:ALLOCATE(flux_rsx_vf(-1:m, -1:n, -1:p, 1:sys_size))
+        ! flux_rsx_vf / flux_src_rsx_vf use the idwbuff bounds of m_rhs's flux_n / flux_src_n (they cover every face the solvers
+        ! write: -1:m etc. in the sweep direction, 0:n/0:p otherwise) so that those can point at them instead of being copied
+        ! (s_alias_riemann_flux_buffers in m_rhs).
+        @:ALLOCATE(flux_rsx_vf(idwbuff(1)%beg:idwbuff(1)%end, idwbuff(2)%beg:idwbuff(2)%end, idwbuff(3)%beg:idwbuff(3)%end, &
+                   & 1:sys_size))
         @:ALLOCATE(flux_gsrc_rsx_vf(-1:m, -1:n, -1:p, 1:sys_size))
-        @:ALLOCATE(flux_src_rsx_vf(-1:m, -1:n, -1:p, eqn_idx%adv%beg:sys_size))
+        @:ALLOCATE(flux_src_rsx_vf(idwbuff(1)%beg:idwbuff(1)%end, idwbuff(2)%beg:idwbuff(2)%end, &
+                   & idwbuff(3)%beg:idwbuff(3)%end, eqn_idx%adv%beg:sys_size))
         @:ALLOCATE(vel_src_rsx_vf(-1:m, -1:n, -1:p, 1:num_vels))
         if (qbmm) then
             @:ALLOCATE(mom_sp_rsx_vf(-1:m+1, -1:n+1, -1:p+1, 1:4))

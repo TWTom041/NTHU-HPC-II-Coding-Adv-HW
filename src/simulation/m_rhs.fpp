@@ -36,10 +36,11 @@ module m_rhs
     use m_igr
     use m_thinc
     use m_pressure_relaxation
+    use m_riemann_state, only: flux_rsx_vf, flux_src_rsx_vf, flux_rsx_aliased
 
     implicit none
 
-    private; public :: s_initialize_rhs_module, s_compute_rhs, s_finalize_rhs_module
+    private; public :: s_initialize_rhs_module, s_alias_riemann_flux_buffers, s_compute_rhs, s_finalize_rhs_module
 
     type(vector_field) :: q_cons_qp  !< WENO-reconstructed cell-average conservative variables at quadrature points
     $:GPU_DECLARE(create='[q_cons_qp]')
@@ -569,6 +570,53 @@ contains
         end if
 
     end subroutine s_initialize_rhs_module
+
+    !> Point flux_n(:) and the advection rows of flux_src_n(:) at the Riemann solvers' output buffers flux_rsx_vf /
+    !! flux_src_rsx_vf, so that s_finalize_riemann_solver no longer copies them (one full read + write of sys_size + 1 fields
+    !! per sweep). Both sets are per-sweep scratch: flux_n(2:num_dims) already alias flux_n(1), and every consumer (flux
+    !! difference, CBC, NC source terms) runs before the next sweep's Riemann solve overwrites the buffers. Must be called after
+    !! s_initialize_riemann_solvers_module, which allocates the buffers with the same idwbuff bounds. Not used for the
+    !! dual-pass hypoelastic HLLD path, whose second finalize pass refills flux_n from flux_hatR_rsx_vf.
+    impure subroutine s_alias_riemann_flux_buffers
+
+        integer :: i, l, l_end
+
+        if (igr .or. hypo_nc_mode == hypo_nc_mode_dual_pass) return
+
+        l_end = eqn_idx%adv%beg
+        if (adv_src_mode == adv_src_mode_alpha_iface) l_end = eqn_idx%adv%end
+
+        do l = 1, sys_size
+            @:DEALLOCATE(flux_n(1)%vf(l)%sf)
+            flux_n(1)%vf(l)%sf(idwbuff(1)%beg:, idwbuff(2)%beg:, idwbuff(3)%beg:) => flux_rsx_vf(:,:,:,l)
+            $:GPU_ENTER_DATA(attach='[flux_n(1)%vf(l)%sf]')
+        end do
+        do l = eqn_idx%adv%beg, l_end
+            @:DEALLOCATE(flux_src_n(1)%vf(l)%sf)
+            flux_src_n(1)%vf(l)%sf(idwbuff(1)%beg:, idwbuff(2)%beg:, idwbuff(3)%beg:) => flux_src_rsx_vf(:,:,:,l)
+            $:GPU_ENTER_DATA(attach='[flux_src_n(1)%vf(l)%sf]')
+        end do
+        if (adv_src_mode == adv_src_mode_vel_iface) then
+            do l = eqn_idx%adv%beg + 1, eqn_idx%adv%end
+                flux_src_n(1)%vf(l)%sf => flux_src_n(1)%vf(eqn_idx%adv%beg)%sf
+                $:GPU_ENTER_DATA(attach='[flux_src_n(1)%vf(l)%sf]')
+            end do
+        end if
+
+        do i = 2, num_dims
+            do l = 1, sys_size
+                flux_n(i)%vf(l)%sf => flux_n(1)%vf(l)%sf
+                $:GPU_ENTER_DATA(attach='[flux_n(i)%vf(l)%sf]')
+            end do
+            do l = eqn_idx%adv%beg, eqn_idx%adv%end
+                flux_src_n(i)%vf(l)%sf => flux_src_n(1)%vf(l)%sf
+                $:GPU_ENTER_DATA(attach='[flux_src_n(i)%vf(l)%sf]')
+            end do
+        end do
+
+        flux_rsx_aliased = .true.
+
+    end subroutine s_alias_riemann_flux_buffers
 
     !> Compute the right-hand side of the semi-discrete governing equations for a single time stage
     impure subroutine s_compute_rhs(q_cons_vf, q_T_sf, q_prim_vf, bc_type, rhs_vf, pb_in, rhs_pb, mv_in, rhs_mv, t_step, stage)
@@ -2206,7 +2254,11 @@ contains
                     end do
                 else
                     do l = 1, sys_size
-                        @:DEALLOCATE(flux_n(i)%vf(l)%sf)
+                        if (flux_rsx_aliased) then
+                            nullify (flux_n(i)%vf(l)%sf)  ! storage owned by flux_rsx_vf
+                        else
+                            @:DEALLOCATE(flux_n(i)%vf(l)%sf)
+                        end if
                         @:DEALLOCATE(flux_gsrc_n(i)%vf(l)%sf)
                     end do
 
@@ -2222,7 +2274,11 @@ contains
 
                     if (adv_src_mode == adv_src_mode_alpha_iface .or. adv_src_mode == adv_src_mode_none) then
                         do l = eqn_idx%adv%beg + 1, eqn_idx%adv%end
-                            @:DEALLOCATE(flux_src_n(i)%vf(l)%sf)
+                            if (flux_rsx_aliased .and. adv_src_mode == adv_src_mode_alpha_iface) then
+                                nullify (flux_src_n(i)%vf(l)%sf)  ! storage owned by flux_src_rsx_vf
+                            else
+                                @:DEALLOCATE(flux_src_n(i)%vf(l)%sf)
+                            end if
                         end do
                     else
                         do l = eqn_idx%adv%beg + 1, eqn_idx%adv%end
@@ -2230,7 +2286,11 @@ contains
                         end do
                     end if
 
-                    @:DEALLOCATE(flux_src_n(i)%vf(eqn_idx%adv%beg)%sf)
+                    if (flux_rsx_aliased) then
+                        nullify (flux_src_n(i)%vf(eqn_idx%adv%beg)%sf)  ! storage owned by flux_src_rsx_vf
+                    else
+                        @:DEALLOCATE(flux_src_n(i)%vf(eqn_idx%adv%beg)%sf)
+                    end if
                 end if
 
                 @:DEALLOCATE(flux_n(i)%vf, flux_src_n(i)%vf, flux_gsrc_n(i)%vf)
