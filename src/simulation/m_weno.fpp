@@ -16,13 +16,20 @@ module m_weno
     use m_thinc, only: s_thinc_compression
     use m_nvtx
 
-    private; public :: s_initialize_weno_module, s_finalize_weno_module, s_weno, s_pack_weno_input_arr
+    private; public :: s_initialize_weno_module, s_finalize_weno_module, s_weno, s_pack_weno_input_arr, s_weno_input_changed
 
     !> @name The cell-average variables that will be WENO-reconstructed unpacked into an array for performance
     !> @{
     real(wp), allocatable, dimension(:,:,:,:) :: v_rs_weno
     !> @}
     $:GPU_DECLARE(create='[v_rs_weno]')
+
+    !> Which fields v_rs_weno currently holds (first field of the packed set and the set size). The x, y and z sweeps of one
+    !! RHS evaluation reconstruct the same q_prim_qp fields, so the pack, a full copy of v_size fields including ghost cells,
+    !! is only redone when s_weno is given a different field set or after s_weno_input_changed (called by m_rhs whenever
+    !! q_prim_qp is recomputed).
+    real(stp), pointer, dimension(:,:,:) :: packed_first_sf => null()
+    integer                              :: packed_size = 0
 
     ! WENO Coefficients
 
@@ -911,6 +918,14 @@ contains
 
     end subroutine s_pack_weno_input_arr
 
+    !> Invalidate the packed WENO input: the fields last packed into v_rs_weno have been overwritten.
+    subroutine s_weno_input_changed()
+
+        nullify (packed_first_sf)
+        packed_size = 0
+
+    end subroutine s_weno_input_changed
+
     !> Perform WENO reconstruction of left and right cell-boundary values from cell-averaged variables
     subroutine s_weno(v_vf, vL_rs_vf_x, vR_rs_vf_x, weno_dir, is1_weno_d, is2_weno_d, is3_weno_d)
 
@@ -993,7 +1008,11 @@ contains
         end if
 
         if (weno_order /= 1) then
-            call s_pack_weno_input_arr(v_vf)
+            if (.not. (packed_size == v_size .and. associated(packed_first_sf, v_vf(1)%sf))) then
+                call s_pack_weno_input_arr(v_vf)
+                packed_first_sf => v_vf(1)%sf
+                packed_size = v_size
+            end if
         end if
 
         if (weno_order == 3) then

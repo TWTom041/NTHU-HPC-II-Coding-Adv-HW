@@ -692,6 +692,8 @@ contains
             call nvtxStartRange("RHS-COMMUNICATION")
             call s_populate_variables_buffers(bc_type, q_prim_qp%vf, pb_in, mv_in, q_T_sf)
             call nvtxEndRange
+            ! q_prim_qp was recomputed: the WENO input packed for the previous RHS evaluation is stale
+            if (recon_type == recon_type_weno) call s_weno_input_changed()
         end if
 
         if (cfl_dt) then
