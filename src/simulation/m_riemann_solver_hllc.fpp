@@ -175,6 +175,14 @@ contains
             #:set SV = STENCIL_VAR
             #:set SF = lambda offs: COORDS.format(STENCIL_IDX = SV + offs)
             if (norm_dir == ${NORM_DIR}$) then
+                ! Compile-time direction maps for this sweep. They shadow the run-time module arrays dir_idx/dir_flg (same
+                ! values, set in s_populate_riemann_states_variables_buffers), so every vel_L(dir_idx(i))-style subscript in
+                ! the kernels below is a constant and the thread-private arrays are kept in registers instead of local memory.
+                #:set DIR_IDX = {1: '1, 2, 3', 2: '2, 1, 3', 3: '3, 1, 2'}[NORM_DIR]
+                #:set DIR_FLG = {1: '1._wp, 0._wp, 0._wp', 2: '0._wp, 1._wp, 0._wp', 3: '0._wp, 0._wp, 1._wp'}[NORM_DIR]
+                block
+                integer, parameter  :: dir_idx(3) = [${DIR_IDX}$]
+                real(wp), parameter :: dir_flg(3) = [${DIR_FLG}$]
                 ! 6-EQUATION MODEL WITH HLLC HLLC star-state flux with contact wave speed s_S
                 if (model_eqns == model_eqns_6eq) then
                     ! 6-equation model (model_eqns=3): separate phasic internal energies
@@ -1541,6 +1549,7 @@ contains
                         $:END_GPU_PARALLEL_LOOP()
                     #:endfor
                 end if
+                end block
             end if
         #:endfor
         ! Computing HLLC flux and source flux for Euler system of equations
