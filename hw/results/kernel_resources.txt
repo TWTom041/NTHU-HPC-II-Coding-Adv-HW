@@ -1,0 +1,22 @@
+Static resources of the 5-equation pure-fluid HLLC kernels (x, y, z sweeps = _gpu, _gpu_1, _gpu_2) and WENO5,
+from the kept cubins (cuobjdump -res-usage; LDL/STL = local-memory load/store instructions in SASS).
+
+variant      kernel                          REG   LDL   STL
+base         hllc_875_gpu   (x)               144   115    58
+base         hllc_875_gpu_1 (y)               143   222    57
+base         hllc_875_gpu_2 (z)               136   222    57
+hllc         hllc_883_gpu   (x)               159    55    58
+hllc         hllc_883_gpu_1 (y)               122   222    57
+hllc         hllc_883_gpu_2 (z)               135   222    57
+iso_inline   hllc_875_gpu   (x)               138    72     8
+iso_inline   hllc_875_gpu_1 (y)               144    74     8
+iso_inline   hllc_875_gpu_2 (z)               151    74     8
+inline       hllc_883_gpu   (x)               148    12     8
+inline       hllc_883_gpu_1 (y)               146    12     8
+inline       hllc_883_gpu_2 (z)               156    12     8
+all          weno_1098_gpu / __1 / __2         188/188/196   0   0
+
+Device calls left in the 5-eq HLLC kernels (PTX call.uni targets, base source, m_riemann_solver_hllc recompiled alone):
+-Minline=lib:...                        x: 3 x s_compute_speed_of_sound; y,z: 3 x speed_of_sound + 2 x s_accumulate_mixture_properties
+-Minline=lib:...,totalsize:5000000      only z: 3 x speed_of_sound (z LDL 210 / STL 69)
+-Minline=lib:...,smallsize:64           none

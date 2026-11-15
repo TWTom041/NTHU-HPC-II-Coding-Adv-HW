@@ -1,0 +1,15 @@
+job 783958  NVIDIA H200  NVHPC 26.3   grind time ns/gp/eq/rhs, 5 interleaved repetitions
+variants: base = 3a9bb766; hllc = +06ee1a63; iso_inline = 3a9bb766 + 82882c42 only; inline = 06ee1a63 + 82882c42
+
+summarize_grind.py:
+variant                  n    median       min       max  spread%  speedup
+base                     5    0.4037    0.4020    0.4039     0.47    1.000
+iso_inline               5    0.3668    0.3664    0.3678     0.37    1.101
+hllc                     5    0.4027    0.4022    0.4041     0.46    1.002
+inline                   5    0.3670    0.3656    0.3674     0.51    1.100
+
+compare.py base(rep1) vs each variant(rep1):
+base:       cells per var: 8120601  bit-identical: True  all-finite(test): True
+iso_inline: cells per var: 8120601  bit-identical: True  all-finite(test): True
+hllc:       cells per var: 8120601  bit-identical: True  all-finite(test): True
+inline:     cells per var: 8120601  bit-identical: True  all-finite(test): True

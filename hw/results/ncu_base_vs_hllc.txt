@@ -1,0 +1,27 @@
+job 783951  ncu --clock-control none, 3 time steps, values = mean of the launches in the last step
+time in us; dram_GB = read+write per launch; lmem = l1tex local load/store bytes per launch (GB)
+
+### base (3a9bb766)
+kernel                                                  time_us       regs  occ_theo%   occ_ach%    dram_GB      dram% lmem_ld_GB lmem_st_GB      fp64%     L1hit%     L2hit%      Minst
+s_weno@1098__1                                         2.89e+03        188       12.5       12.2       1.71       12.3          0          0       28.4       26.6       79.8        828
+s_weno@1098__2                                         2.83e+03        196       12.5       12.1       1.77         13          0          0         29       27.5       77.8        829
+s_weno@1098                                             2.8e+03        188       12.5       12.1       1.76         13          0          0       29.2       86.7       69.9        797
+s_hllc_riemann_solver@875_1                            2.36e+03        143       18.8       17.2       4.36       38.3       9.79       5.49       7.26       77.7       87.9        593
+s_hllc_riemann_solver@875_2                            2.34e+03        136       18.8       17.2       4.36       38.7       9.79       5.48       7.34       77.7       87.9        594
+s_hllc_riemann_solver@875                              1.99e+03        144       18.8       17.2        3.2       33.5       4.83        4.7       8.45       78.1       86.7        503
+s_tvd_rk@486                                            1.1e+03         66       43.8       38.9       2.11         41          0          0       3.65       68.5       38.5        653
+s_compute_advection_source_term@1345                        795         56       56.2         50       1.56       40.9          0          0       3.44       52.3       47.2        497
+s_compute_advection_source_term@1183                        783         56       56.2       50.1       1.56       41.5          0          0        3.5       52.3       47.1        508
+s_compute_advection_source_term@1107                        709         46       62.5       55.6       1.04       30.6          0          0       3.87       70.5       54.1        501
+s_compute_rhs@598                                           704         48       62.5       54.6       1.15         34          0          0          0         55       54.5        525
+s_pack_weno_input_arr@900                                   647         44       62.5       54.1       1.15         37          0          0          0       47.3       52.4        461
+s_finalize_riemann_solver@1245                              585         46       62.5       53.9       1.05       37.4          0          0          0       50.8       54.6        408
+s_finalize_riemann_solver@1189                              584         46       62.5       53.9       1.05       37.4          0          0          0       50.7       54.1        408
+s_finalize_riemann_solver@1299                              582         48       62.5       53.8       1.05       37.5          0          0          0       50.6       54.2        408
+s_convert_conservative_to_primitive_variables@459           542         96       31.2       29.3       1.05       40.3          0          0        5.6         69       55.3        259
+
+### hllc (commit 1 only, 06ee1a63)
+s_hllc_riemann_solver@883_1                            2.35e+03        122         25       22.3       5.39       47.6       9.79       5.48       7.31       71.7         88        573
+s_hllc_riemann_solver@883_2                            2.34e+03        135       18.8       17.2       4.36       38.6       9.79       5.48       7.33       77.5       87.9        582
+s_hllc_riemann_solver@883                              1.98e+03        159       18.8       17.2        3.2       33.6       3.39        4.7       8.36         75       86.7        482
+(all other kernels identical to base within 0.5 %)

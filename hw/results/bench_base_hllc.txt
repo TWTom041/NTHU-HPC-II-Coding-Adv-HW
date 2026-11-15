@@ -1,0 +1,29 @@
+job 783950  node 25a-hgpn012  NVIDIA H200 (driver 580.65.06, max SM 1980 MHz, 700 W)  NVHPC 26.3
+grind time ns/gp/eq/rhs, 5 interleaved repetitions (base hllc base hllc ...)
+
+variant,rep,grind_ns,time_avg_s,wall_s   (first reps as printed)
+base,1,0.4017656250000000,7.767164E-02,7.48
+hllc,1,0.4020000000000000,7.782522E-02,7.36
+base,2,0.4021562500000000,7.771240E-02,7.34
+hllc,2,0.4025281250000000,7.778562E-02,7.37
+base,3,0.4015796875000000,7.760708E-02,7.32
+hllc,3,0.4038750000000000,7.810352E-02,7.35
+
+summarize_grind.py:
+variant                  n    median       min       max  spread%  speedup
+base                     5    0.4022    0.4016    0.4036     0.50    1.000
+hllc                     5    0.4024    0.4020    0.4039     0.47    0.999
+
+compare.py base(rep1) vs hllc(rep1), restart_data/lustre_30.dat:
+cells per var: 8120601  bit-identical: True  all-finite(test): True
+        var     max|ref|  max abs diff  max rel diff     n_diff
+ alpha_rho1   1.0000e+03    0.0000e+00    0.0000e+00          0
+ alpha_rho2   9.0000e-01    0.0000e+00    0.0000e+00          0
+      rho_u   7.2111e+00    0.0000e+00    0.0000e+00          0
+      rho_v   7.2111e+00    0.0000e+00    0.0000e+00          0
+      rho_w   7.2111e+00    0.0000e+00    0.0000e+00          0
+          E   6.9887e+08    0.0000e+00    0.0000e+00          0
+     alpha1   9.0000e-01    0.0000e+00    0.0000e+00          0
+     alpha2   9.0000e-01    0.0000e+00    0.0000e+00          0
+
+determinism, base rep1 vs base rep2: bit-identical: True (all n_diff = 0)
