@@ -74,6 +74,12 @@ exit 0
             )
         endforeach()
 
+        # EXPERIMENT: extra flags for the WENO translation unit only (e.g. -gpu=maxregcount:128)
+        if (NOT "$ENV{MFC_WENO_FLAGS}" STREQUAL "")
+            separate_arguments(_weno_flags UNIX_COMMAND "$ENV{MFC_WENO_FLAGS}")
+            set_source_files_properties("${CMAKE_BINARY_DIR}/fypp/${ARGS_TARGET}/m_weno.fpp.f90"
+                TARGET_DIRECTORY ${ARGS_TARGET} PROPERTIES COMPILE_OPTIONS "${_weno_flags}")
+        endif()
         list(PREPEND IPO_TARGETS ${ARGS_TARGET}_lib)
     endif()
 
