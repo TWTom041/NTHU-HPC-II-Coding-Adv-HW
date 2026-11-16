@@ -26,7 +26,9 @@ git clone -q https://github.com/TWTom041/NTHU-HPC-II-Coding-Adv-HW.git "$SRC" &&
 git log -1 --format='%H %s' > "$RES/ref.txt"
 # MFC's default launcher search picks srun first; this HPC-X Open MPI has no Slurm PMI support ("getting job size
 # failed" in a first attempt), so force mpirun (-b) and disable Open MPI's bind-to-core inside the Slurm cgroup.
+# The job is one Slurm task with 24 cores, so mpirun sees one slot: allow oversubscription for the 2-rank tests.
 export OMPI_MCA_hwloc_base_binding_policy=none
+export OMPI_MCA_rmaps_base_oversubscribe=true
 ./mfc.sh test --gpu acc -j 12 -g 0 1 ${TEST_ARGS:-} -- -b mpirun > "$RES/test.log" 2>&1
 echo "exit=$?" >> "$RES/ref.txt"
 cp tests/failed_uuids.txt "$RES/" 2>/dev/null || true

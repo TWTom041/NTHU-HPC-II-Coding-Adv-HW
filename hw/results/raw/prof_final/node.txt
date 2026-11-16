@@ -1,0 +1,5 @@
+name, uuid, driver_version, clocks.max.sm [MHz]
+NVIDIA H200, GPU-187bae27-fd0d-acfe-a899-7b3d06198387, 580.65.06, 1980 MHz
+25a-hgpn005
+NVIDIA Nsight Systems version 2026.1.1.204-261137176666v0
+Version 2025.4.1.0 (build 37096885) (public-release)

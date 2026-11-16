@@ -7,10 +7,17 @@ date: 2026-11-16
 
 # 摘要
 
-接續 HW-1（H100 profiling）的發現，在 nano4 的 H200 上對 MFC（commit 3a9bb766）做了四個 commit 的修改，全部以
+接續 HW-1（H100 profiling）的發現，在 nano4 的 H200 上對 MFC（commit 3a9bb766）做了六個 commit 的修改，全部以
 `examples/3D_performance_test`（201³、兩流體 5-equation、WENO5-M + HLLC + RK3）量測。
 
-@@SUMMARY@@
+- **單卡結果**：grind time 0.4026 → **0.2581 ns/gp/eq/rhs（1.56×）**，每個 RK stage 的 kernel 時間 25.4 → 15.9 ms（nsys）。所有版本最後一步的守恆量與原版**逐 byte 相同**。
+- **HW-1 的三個建議**在 H200 上逐一驗證：
+  1. HLLC 的 local memory 確實存在（每次 launch 9.8 GB load + 5.5 GB store），但主因不是 HW-1 推測的「runtime index」，而是 nvfortran 沒有把兩個小的 device 函式 inline 進 kernel。用 `-Minline=smallsize:64` 修正後快 10%。runtime-index 的修正單獨無效。
+  2. WENO 的 register 壓力：只對 `m_weno` 設 `maxregcount:128`，occupancy 12.5% → 25%，WENO 快 29%。
+  3. streaming kernel：兩個完全多餘的整場複製（finalize、每個 sweep 重複的 WENO pack）直接拿掉，另外把 collapse(4) 改成一個 thread 一個 cell，讓 flux difference 等 kernel 的頻寬從 41% 提高到 64%。
+- **負面結果**：WENO collapse(4) 慢 8.7%；register 上限 96/160 都比 128 差；runtime-index 修正單獨沒有加速。
+- **正確性**：MFC regression suite（686 個測試，H200）@@REGTEST_SHORT@@
+- **多 GPU**：@@MGPU_SHORT@@
 
 # 1. 測資選擇與理由
 
@@ -179,7 +186,17 @@ RHS 複製（`m_rhs.fpp:646-656`）、三個方向的 flux difference（`m_rhs.f
 | `pack` | 0.3160 | 1.000 |
 | `pack` + 4.6（`exp_stream`） | 0.2961 | 1.067 |
 
-@@STREAM_PROFILE@@
+ncu（`hw/results/raw/prof_final`，與 base 比較）：
+
+| kernel | base：時間 / 指令數 / DRAM% | final：時間 / 指令數 / DRAM% |
+|---|---|---|
+| flux difference y（`@1183` → `@1235`） | 783 µs / 508 M / 41.5% | 512 µs / 201 M / 63.5% |
+| flux difference z（`@1345` → `@1398`） | 795 µs / 497 M / 40.9% | 508 µs / 197 M / 64.0% |
+| flux difference x | 709 µs / 501 M / 30.6% | 412 µs / 200 M / 52.5% |
+| RHS 複製（`s_compute_rhs`） | 704 µs / 525 M / 34.0% | 397 µs / 185 M / 60.2% |
+| RK 更新（`s_tvd_rk`） | 1100 µs / 653 M / 41.0% | 889 µs / 413 M / 50.3% |
+
+DRAM 流量不變（例如 flux difference 都是 1.56 GB），指令數降到 40%，有效頻寬從約 2.0 TB/s 升到 3.0 TB/s（H200 峰值 4.8 TB/s 的 64%）。
 
 # 5. 累積加速與正確性
 
@@ -202,7 +219,24 @@ cherry-pick 到 3a9bb766 上；「累積」= main 上到該 commit 為止。所�
 單獨加速相乘是 1.099 × 1.083 × 1.054 × 1.105 × 1.054 = 1.46，小於累積的 1.56：各項省下的是不同 kernel 的時間，
 整體變短之後同樣省下的毫秒數占比變大（例如 maxregcount:128 單獨 +10.5%，在 commit 4 之上 +13.7%）。
 
-**MFC regression suite**：@@REGTEST@@
+nsys 每個 RK stage 的 kernel 時間（`hw/results/raw/prof_final`，同一個 job 依序量 base 與 final）：
+
+| kernel group | base ms/stage | final ms/stage | 對應 commit |
+|---|---:|---:|---|
+| WENO 重建 | 8.461 | 6.011 | 039ee7bc |
+| WENO input pack | 2.011 | 0.667 | bbc66c82 |
+| HLLC Riemann solver | 6.573 | 4.328 | 82882c42（+06ee1a63） |
+| Riemann finalize 複製 | 2.028 | 0 | b92b23ae |
+| flux difference | 2.341 | 1.448 | 8cd486ab |
+| RK 更新 | 1.120 | 0.891 | 8cd486ab |
+| RHS 複製 | 0.729 | 0.400 | 8cd486ab |
+| advection source | 0.725 | 0.726 | — |
+| cons → prim | 0.540 | 0.541 | — |
+| halo / BC / CBC / 其他 | 0.867 | 0.872 | — |
+| **合計** | **25.395** | **15.884**（1.60×） | |
+
+**MFC regression suite**（`./mfc.sh test --gpu acc`，非 case-optimized 的 OpenACC build，H200，golden 容許誤差 1e-12，
+`hw/scripts/regtest.sbatch`）：@@REGTEST@@
 
 # 6. 多 GPU（同一節點 strong scaling）
 

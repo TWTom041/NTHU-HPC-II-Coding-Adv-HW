@@ -1,2 +1,2 @@
-bbc66c82cf467dbd4ab2af49980f44454e13582e WENO: pack the reconstruction input once per RHS evaluation
-exit=143
+8cd486abec3d0b6495e5ba789e995a2b8a8f2e3a Streaming kernels: one thread per cell, equation loop inside
+exit=8
