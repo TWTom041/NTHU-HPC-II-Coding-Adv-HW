@@ -1,0 +1,4 @@
+│  ✓ ALL TESTS PASSED                                                          │
+│       8 passed                                                               │
+│       0 failed                                                               │
+│     720 skipped                                                              │

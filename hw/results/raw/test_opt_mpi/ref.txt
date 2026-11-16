@@ -1,0 +1,2 @@
+8cd486abec3d0b6495e5ba789e995a2b8a8f2e3a Streaming kernels: one thread per cell, equation loop inside
+exit=1

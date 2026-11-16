@@ -1,0 +1,6 @@
+mfc: ERROR > :( /tmp/mfcadv-test-785873/build/install/gpu-acc-869e78ff84/bin/syscheck failed with exit code 134.
+Error: Submitting batch file for Interactive failed. It can be found here: /tmp/mfcadv-test-785873/tests/AFBACA70/MFC.sh. Please check the file for errors.
+│       7 passed                                                               │
+│       1 failed                                                               │
+│     720 skipped                                                              │
+│        (execution failed)                                                    │

@@ -16,7 +16,7 @@ date: 2026-11-16
   2. WENO 的 register 壓力：只對 `m_weno` 設 `maxregcount:128`，occupancy 12.5% → 25%，WENO 快 29%。
   3. streaming kernel：兩個完全多餘的整場複製（finalize、每個 sweep 重複的 WENO pack）直接拿掉，另外把 collapse(4) 改成一個 thread 一個 cell，讓 flux difference 等 kernel 的頻寬從 41% 提高到 64%。
 - **負面結果**：WENO collapse(4) 慢 8.7%；register 上限 96/160 都比 128 差；runtime-index 修正單獨沒有加速。
-- **正確性**：MFC regression suite（686 個測試，H200）@@REGTEST_SHORT@@
+- **正確性**：MFC regression suite（H200，720 個測試）原版與最終版結果相同：678 passed、8 個 2-rank 測試因 Slurm 下的 `mpirun` slot 設定無法啟動；修正 launcher 後這 8 個也都通過（見 §5）。
 - **多 GPU**：@@MGPU_SHORT@@
 
 # 1. 測資選擇與理由
@@ -236,11 +236,39 @@ nsys 每個 RK stage 的 kernel 時間（`hw/results/raw/prof_final`，同一個
 | **合計** | **25.395** | **15.884**（1.60×） | |
 
 **MFC regression suite**（`./mfc.sh test --gpu acc`，非 case-optimized 的 OpenACC build，H200，golden 容許誤差 1e-12，
-`hw/scripts/regtest.sbatch`）：@@REGTEST@@
+`hw/scripts/regtest.sbatch`）：
+
+| run | upstream 3a9bb766 | 最終 8cd486ab |
+|---|---|---|
+| 完整 suite（720 個測試，執行 686 個、skip 34 個） | 678 passed / 8 failed / 34 skipped | 678 passed / 8 failed / 34 skipped |
+| 失敗的 8 個 | 全部是 2 rank 的測試，`mpirun` 啟動失敗（"not enough slots"：job 只有 1 個 Slurm task） | 同一組 8 個 UUID（`0090B316 0DDE8A87 0FCCE9F1 75D7CC39 8C7AA13B AFBACA70 CB0DC420 CE232828`） |
+| 只重跑這 8 個（`OMPI_MCA_rmaps_base_oversubscribe=true`） | 8 passed | 7 passed；`AFBACA70`（3D 2 ranks IBM sphere）的 `syscheck` 在 `MPI_Init` 內被 UCX（`libuct_ib`）abort，MFC 程式還沒開始執行；單獨重跑：passed。合計 8/8 |
+
+也就是說，在相同環境下，修改沒有讓任何一個原本通過的測試失敗。多 rank 的正確性另外由 §6 驗證：1/2/4/8 卡的最終守恆量與單卡結果逐 byte 相同。
+第一次送出的測試全部失敗（MFC 選了 `srun`，而這個 HPC-X 沒有 Slurm PMI），修正 launcher 後重跑；這段過程記在 `AGENT_LOG.md`。
 
 # 6. 多 GPU（同一節點 strong scaling）
 
-@@MGPU@@
+同一節點 1/2/4/8 張 H200、總網格固定 201³（strong scaling）、每張卡一個 MPI rank（MFC 用 node-local rank 選卡），
+`hw/scripts/multigpu.sbatch`。數值是 MFC 的 grind time（以總網格點數換算，越小越好），3 次重複的中位數；每個卡數用同樣 rank 數的
+pre_process 產生初始條件。變數：`rdma_mpi`（F：halo 先 D2H 再走 host MPI；T：GPU-aware MPI，HPC-X/UCX 直接傳 device buffer）
+與 binding（none：`--bind-to none`；numa：每個 NUMA domain 4 個 rank 並綁在該 domain，GPU 0–3 在 NUMA 0、4–7 在 NUMA 1）。
+
+**整節點 8 卡 job（`mgpu8`，job 783997，節點獨佔）**，baseline 與 commit 4（`pack`）：
+
+| GPUs | base rdma=F | base rdma=T | pack rdma=F | pack rdma=T | pack rdma=T + numa |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 0.4032 | 0.4033 | 0.3160 | 0.3158 | — |
+| 2 | 0.2552 | 0.2158 | 0.2106 | 0.1712 | 0.1703 |
+| 4 | 0.1600 | 0.1204 | 0.1360 | 0.0963 | 0.0960 |
+| 8 | 0.1130 | 0.0718 | 0.1053 | 0.0586 | 0.0587 |
+
+- **GPU-aware MPI 是多卡時最大的槓桿**：8 卡時 rdma_mpi=T 比 F 快 36%（base）／44%（pack）。rdma=F 時每次 halo exchange 都要 D2H、host MPI、H2D。
+- **NUMA binding**：rdma=F 時有幫助（8 卡 base 0.1130 → 0.1087，pack 0.1053 → 0.0949，因為 host staging 走對的 socket），rdma=T 時沒有差別（資料不經過 host）。
+- 8 卡 + rdma=T 的平行效率：base 0.4032 / (8 × 0.0718) = 70%，pack 0.3160 / (8 × 0.0586) = 67%。單卡越快，halo exchange 占比越高，效率略降——與 HW-1 的結論一致。
+- 多 rank 的正確性：每個 (版本, 卡數, rdma) 的最終守恆量都與同一版本 1 卡的結果**逐 byte 相同**（`compare_final_*.txt`，16 個比較）。
+
+@@MGPU_FINAL@@
 
 # 7. 負面結果與沒有採用的實驗
 
