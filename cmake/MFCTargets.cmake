@@ -77,6 +77,15 @@ exit 0
         list(PREPEND IPO_TARGETS ${ARGS_TARGET}_lib)
     endif()
 
+    # WENO reconstruction (m_weno): nvfortran gives the WENO5 kernels 188-196 registers/thread (12.5% occupancy, latency
+    # bound, FP64 pipe ~29% busy). Capping this translation unit at 128 registers doubles the theoretical occupancy (25%);
+    # the resulting spills (5-8 GB of local loads per launch, mostly L1/L2 hits) cost less than the hidden latency gains:
+    # WENO time -29% on H200 (sm_90). Other modules keep the default allocation (the HLLC kernels need ~150 registers).
+    if (ARGS_TARGET STREQUAL "simulation" AND MFC_OpenACC AND ARGS_OpenACC AND CMAKE_Fortran_COMPILER_ID STREQUAL "NVHPC")
+        set_source_files_properties("${CMAKE_BINARY_DIR}/fypp/simulation/m_weno.fpp.f90"
+            TARGET_DIRECTORY simulation PROPERTIES COMPILE_OPTIONS "-gpu=maxregcount:128")
+    endif()
+
     foreach (a_target ${IPO_TARGETS})
         set_target_properties(${a_target} PROPERTIES Fortran_PREPROCESS ON)
 
