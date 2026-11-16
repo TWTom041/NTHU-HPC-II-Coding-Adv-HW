@@ -23,8 +23,9 @@ Experiment branches (not merged): `exp-weno4` (WENO `collapse(4)`, slower), `exp
 - Raw and summarised measurements: [`results/`](results/)
 - Slides: [`video/slides.pdf`](video/slides.pdf) (Marp source [`video/slides.md`](video/slides.md)); presentation video
   [`video/presentation.mp4`](video/presentation.mp4) with subtitles [`video/presentation.srt`](video/presentation.srt).
-  Narration [`video/narration.md`](video/narration.md) is synthesised with Qwen3-TTS (`video/tts_qwen.py`, a designed
-  narrator voice, not a clone of anyone); rebuild with `python3 hw/video/build_video.py`.
+  Narration [`video/narration.md`](video/narration.md) is synthesised with BreezyVoice (`video/tts_breezy.py`,
+  Taiwanese-Mandarin voice cloning prompted with the student's own HW-2 narration, with his consent; the prompt
+  recording is not in the repo); rebuild with `python3 hw/video/build_video.py`.
 
 ## Reproduce (nano4)
 

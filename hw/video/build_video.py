@@ -1,14 +1,15 @@
 # Build hw/video/presentation.mp4 (+ presentation.srt):
 #   1. Marp renders hw/video/slides.md to 1920x1080 PNGs,
 #   2. hw/video/narration.md is split per slide ("## n") and per sentence; each sentence is synthesised with
-#      Qwen3-TTS (tts_qwen.py: a designed narrator voice, cloned for every sentence) on a GPU host over ssh
-#      (default: art, 4x V100). WAVs are cached in audio/<sha1 of text>.wav, so editing the narration only
-#      re-synthesises the changed sentences,
+#      BreezyVoice (tts_breezy.py: Taiwanese-Mandarin voice cloning, prompted with the student's own HW-2 narration)
+#      on a GPU host over ssh (default: art, 4x V100). WAVs are cached in audio/<sha1>.wav, so editing the narration
+#      only re-synthesises the changed sentences,
 #   3. ffmpeg makes one segment per slide (still image + concatenated sentence audio + pause), concatenates them and
 #      burns the subtitles in (libass); the SRT is also written next to the MP4.
 #   python hw/video/build_video.py
-# Needs npx (marp-cli), a Chrome/Chromium, ffmpeg with libass, Noto Sans CJK TC, and on the TTS host a venv with
-# qwen-tts plus the Qwen3-TTS-12Hz-1.7B-{VoiceDesign,Base} weights (TTS_HOST / TTS_DIR below).
+# Needs npx (marp-cli), a Chrome/Chromium, ffmpeg with libass, Noto Sans CJK TC, and on the TTS host: a BreezyVoice
+# checkout + venv + weights and the speaker prompt voice/ref.wav + voice/ref.txt (TTS_HOST / TTS_DIR below; the
+# prompt recording is kept off the public repo).
 import hashlib
 import json
 import os
@@ -20,8 +21,9 @@ import tempfile
 
 TTS_HOST = os.environ.get("TTS_HOST", "twtom@10.121.240.40")
 TTS_DIR = os.environ.get("TTS_DIR", "/mnt/data/twtom/tts")
-TTS_GPU = os.environ.get("TTS_GPU", "cuda:0")
-GAP, PAUSE = 0.18, 0.6  # silence between sentences / after each slide [s]
+TTS_GPU = os.environ.get("TTS_GPU", "0,1,2,3")  # one TTS process per listed GPU on the TTS host
+GAP, PAUSE = 0.18, 0.5  # silence between sentences / after each slide [s]
+TEMPO = 1.1  # BreezyVoice copies the prompt's relaxed pace; 1.1x keeps the talk inside the 10-minute limit
 here = pathlib.Path(__file__).resolve().parent
 cache = here / "audio"
 cache.mkdir(exist_ok=True)
@@ -42,7 +44,7 @@ sentences = [[x.strip() for x in re.findall(r"[^。！？]+[。！？]?", s.repl
 # Spoken form for the TTS (subtitles keep the written form): spell out acronyms/model numbers the voice misreads.
 SAY = {"H200": "H 兩百", "H100": "H 一百", "nano4": "nano 四", "HW1": "HW 一", "MFC": "M F C", "HLLC": "H L L C",
        "WENO": "WENO", "PTX": "P T X", "SASS": "S A S S", "CMake": "C make", "GPU": "G P U", "MPI": "M P I",
-       "HPC X": "H P C X", "SSH": "S S H", "Qwen3 TTS": "Qwen 三 T T S", "AI agent": "A I agent", "HBM": "H B M",
+       "HPC X": "H P C X", "SSH": "S S H", "AI agent": "A I agent", "HBM": "H B M",
        "SC26": "S C 二十六", "3D": "三 D", " GB": " G B", "SM": "S M", "srun": "S run", "rdma mpi": "R D M A M P I",
        "Coding Adv": "Coding advanced", "eeclass": "E E class", "sudo": "sudo", "brief": "brief"}
 
@@ -54,22 +56,31 @@ def spoken(text):
 
 
 def key(text):
-    return hashlib.sha1(spoken(text).encode()).hexdigest()[:16]
+    return hashlib.sha1(("breezy:" + spoken(text)).encode()).hexdigest()[:16]
 
 
 # ---- TTS (remote GPU), only for sentences not in the cache --------------------------------------------------------
 todo = sorted({(key(t), spoken(t)) for ss in sentences for t in ss if not (cache / f"{key(t)}.wav").exists()})
 if todo:
+    # One BreezyVoice process per GPU (~30-50 s per sentence on a V100), sentences dealt round-robin.
+    gpus = TTS_GPU.split(",")
     job = f"{TTS_DIR}/job-{os.getpid()}"
-    (tmp / "sentences.json").write_text(json.dumps(todo, ensure_ascii=False))
-    subprocess.run(["ssh", TTS_HOST, f"mkdir -p {job}/out && cp {TTS_DIR}/ref.wav {job}/out/ 2>/dev/null; true"],
-                   check=True)
-    subprocess.run(["scp", "-q", str(tmp / "sentences.json"), str(here / "tts_qwen.py"), f"{TTS_HOST}:{job}/"],
-                   check=True)
-    subprocess.run(["ssh", TTS_HOST, f"cd {TTS_DIR} && . venv/bin/activate && HF_HOME={TTS_DIR}/hf "
-                    f"python {job}/tts_qwen.py {job}/sentences.json {job}/out --models {TTS_DIR}/models "
-                    f"--device {TTS_GPU} && cp -n {job}/out/ref.wav {TTS_DIR}/ref.wav"], check=True)
-    subprocess.run(["rsync", "-a", "--exclude", "ref.wav", f"{TTS_HOST}:{job}/out/", f"{cache}/"], check=True)
+    for g in range(len(gpus)):
+        (tmp / f"sentences{g}.json").write_text(json.dumps(todo[g::len(gpus)], ensure_ascii=False))
+    subprocess.run(["ssh", TTS_HOST, f"mkdir -p {job}/out"], check=True)
+    subprocess.run(["scp", "-q", *[str(tmp / f"sentences{g}.json") for g in range(len(gpus))],
+                    str(here / "tts_breezy.py"), f"{TTS_HOST}:{job}/"], check=True)
+    procs = [subprocess.Popen(["ssh", TTS_HOST, f"cd {TTS_DIR}/BreezyVoice && . ../bv/bin/activate && "
+                               f"export PYTHONUTF8=1 HF_HOME={TTS_DIR}/hf CUDA_VISIBLE_DEVICES={gpu} && "
+                               f"python {job}/tts_breezy.py {job}/sentences{g}.json {job}/out "
+                               f"--ref {TTS_DIR}/voice/ref.wav --ref-text \"$(cat {TTS_DIR}/voice/ref.txt)\" "
+                               f"--model {TTS_DIR}/models/BreezyVoice > {job}/log{g}.txt 2>&1"])
+             for g, gpu in enumerate(gpus)]
+    failed = [g for g, p in enumerate(procs) if p.wait() != 0]
+    subprocess.run(["rsync", "-a", "--exclude", "*.json", "--exclude", "*.txt", "--exclude", "*.py",
+                    f"{TTS_HOST}:{job}/out/", f"{cache}/"], check=True)
+    if failed:
+        raise SystemExit(f"TTS failed on GPU slot(s) {failed}; see {TTS_HOST}:{job}/log*.txt")
     subprocess.run(["ssh", TTS_HOST, f"rm -rf {job}"], check=True)
     print(f"synthesised {len(todo)} sentences")
 
@@ -93,10 +104,10 @@ for i, img in enumerate(slides):
     lst, t = tmp / f"al{i:02d}.txt", t0
     lines = []
     for j, text in enumerate(sentences[i]):
-        a = tmp / f"a{i:02d}_{j:02d}.wav"  # trim edge silence, uniform PCM for the concat demuxer
+        a = tmp / f"a{i:02d}_{j:02d}.wav"  # trim edge silence, tempo, uniform PCM for the concat demuxer
         subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(cache / f"{key(text)}.wav"), "-af",
                         "silenceremove=start_periods=1:start_threshold=-50dB,areverse,"
-                        "silenceremove=start_periods=1:start_threshold=-50dB,areverse",
+                        f"silenceremove=start_periods=1:start_threshold=-50dB,areverse,atempo={TEMPO}",
                         "-ar", "24000", "-ac", "1", "-c:a", "pcm_s16le", str(a)], check=True)
         d = dur(a)
         cues.append((t, t + d, text.rstrip("。")))

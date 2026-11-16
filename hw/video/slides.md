@@ -21,7 +21,7 @@ style: |
 ## 1 卡 1.56×、8 卡 7.87×，結果逐 byte 相同
 
 HPC-II Coding-Adv-HW · 蔡昕翰 114000110 · NVIDIA H200 @ nano4
-<span class="small">repo: github.com/TWTom041/NTHU-HPC-II-Coding-Adv-HW · 旁白由 Qwen3-TTS 合成</span>
+<span class="small">repo: github.com/TWTom041/NTHU-HPC-II-Coding-Adv-HW · 旁白：BreezyVoice 以我自己的錄音為聲音樣本合成</span>
 
 ---
 
