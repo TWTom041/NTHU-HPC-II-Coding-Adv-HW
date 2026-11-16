@@ -1,0 +1,75 @@
+job=783997 node=25a-hgpn115 date=2026-11-16T06:48:11+08:00
+	[4mGPU0	GPU1	GPU2	GPU3	GPU4	GPU5	GPU6	GPU7	NIC0	NIC1	NIC2	NIC3	NIC4	NIC5	NIC6	NIC7	NIC8	NIC9	CPU Affinity	NUMA Affinity	GPU NUMA ID[0m
+GPU0	 X 	NV18	NV18	NV18	NV18	NV18	NV18	NV18	PIX	NODE	NODE	NODE	NODE	NODE	SYS	SYS	SYS	SYS	0-47	0		N/A
+GPU1	NV18	 X 	NV18	NV18	NV18	NV18	NV18	NV18	NODE	NODE	NODE	PIX	NODE	NODE	SYS	SYS	SYS	SYS	0-47	0		N/A
+GPU2	NV18	NV18	 X 	NV18	NV18	NV18	NV18	NV18	NODE	NODE	NODE	NODE	PIX	NODE	SYS	SYS	SYS	SYS	0-47	0		N/A
+GPU3	NV18	NV18	NV18	 X 	NV18	NV18	NV18	NV18	NODE	NODE	NODE	NODE	NODE	PIX	SYS	SYS	SYS	SYS	0-47	0		N/A
+GPU4	NV18	NV18	NV18	NV18	 X 	NV18	NV18	NV18	SYS	SYS	SYS	SYS	SYS	SYS	PIX	NODE	NODE	NODE	56-103	1		N/A
+GPU5	NV18	NV18	NV18	NV18	NV18	 X 	NV18	NV18	SYS	SYS	SYS	SYS	SYS	SYS	NODE	PIX	NODE	NODE	56-103	1		N/A
+GPU6	NV18	NV18	NV18	NV18	NV18	NV18	 X 	NV18	SYS	SYS	SYS	SYS	SYS	SYS	NODE	NODE	PIX	NODE	56-103	1		N/A
+GPU7	NV18	NV18	NV18	NV18	NV18	NV18	NV18	 X 	SYS	SYS	SYS	SYS	SYS	SYS	NODE	NODE	NODE	PIX	56-103	1		N/A
+NIC0	PIX	NODE	NODE	NODE	SYS	SYS	SYS	SYS	 X 	NODE	NODE	NODE	NODE	NODE	SYS	SYS	SYS	SYS				
+NIC1	NODE	NODE	NODE	NODE	SYS	SYS	SYS	SYS	NODE	 X 	PIX	NODE	NODE	NODE	SYS	SYS	SYS	SYS				
+NIC2	NODE	NODE	NODE	NODE	SYS	SYS	SYS	SYS	NODE	PIX	 X 	NODE	NODE	NODE	SYS	SYS	SYS	SYS				
+NIC3	NODE	PIX	NODE	NODE	SYS	SYS	SYS	SYS	NODE	NODE	NODE	 X 	NODE	NODE	SYS	SYS	SYS	SYS				
+NIC4	NODE	NODE	PIX	NODE	SYS	SYS	SYS	SYS	NODE	NODE	NODE	NODE	 X 	NODE	SYS	SYS	SYS	SYS				
+NIC5	NODE	NODE	NODE	PIX	SYS	SYS	SYS	SYS	NODE	NODE	NODE	NODE	NODE	 X 	SYS	SYS	SYS	SYS				
+NIC6	SYS	SYS	SYS	SYS	PIX	NODE	NODE	NODE	SYS	SYS	SYS	SYS	SYS	SYS	 X 	NODE	NODE	NODE				
+NIC7	SYS	SYS	SYS	SYS	NODE	PIX	NODE	NODE	SYS	SYS	SYS	SYS	SYS	SYS	NODE	 X 	NODE	NODE				
+NIC8	SYS	SYS	SYS	SYS	NODE	NODE	PIX	NODE	SYS	SYS	SYS	SYS	SYS	SYS	NODE	NODE	 X 	NODE				
+NIC9	SYS	SYS	SYS	SYS	NODE	NODE	NODE	PIX	SYS	SYS	SYS	SYS	SYS	SYS	NODE	NODE	NODE	 X 				
+
+Legend:
+
+  X    = Self
+  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)
+  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node
+  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)
+  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)
+  PIX  = Connection traversing at most a single PCIe bridge
+  NV#  = Connection traversing a bonded set of # NVLinks
+
+NIC Legend:
+
+  NIC0: mlx5_0
+  NIC1: mlx5_1
+  NIC2: mlx5_2
+  NIC3: mlx5_3
+  NIC4: mlx5_4
+  NIC5: mlx5_5
+  NIC6: mlx5_6
+  NIC7: mlx5_7
+  NIC8: mlx5_8
+  NIC9: mlx5_9
+
+index, name, pci.bus_id
+0, NVIDIA H200, 00000000:18:00.0
+1, NVIDIA H200, 00000000:3A:00.0
+2, NVIDIA H200, 00000000:4B:00.0
+3, NVIDIA H200, 00000000:5C:00.0
+4, NVIDIA H200, 00000000:9A:00.0
+5, NVIDIA H200, 00000000:BA:00.0
+6, NVIDIA H200, 00000000:CA:00.0
+7, NVIDIA H200, 00000000:DA:00.0
+Model name:                              Intel(R) Xeon(R) Platinum 8480+
+NUMA node(s):                            2
+NUMA node0 CPU(s):                       0-55
+NUMA node1 CPU(s):                       56-111
+--- base
+name=base
+git=3a9bb7662db5fb3139e2ee8cbdd6651e4dbe768e
+describe=3a9bb766 Add hemisphere shell particle cloud packing (#1667)
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=432
+built=2026-11-16T04:32:20+08:00 on 25a-lgn04
+--- pack
+name=pack
+git=bbc66c82cf467dbd4ab2af49980f44454e13582e
+describe=bbc66c82 WENO: pack the reconstruction input once per RHS evaluation
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=638
+built=2026-11-16T05:02:29+08:00 on 25a-lgn04

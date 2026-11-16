@@ -1,0 +1,1 @@
+ Performance:   0.3280156250000000      ns/gp/eq/rhs

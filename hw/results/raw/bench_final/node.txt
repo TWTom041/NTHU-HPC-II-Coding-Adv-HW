@@ -1,0 +1,130 @@
+job=785519 node=25a-hgpn002 date=2026-11-16T14:19:32+08:00
+variants=base iso_inline iso_alias iso_pack iso_wreg iso_stream inline alias pack wreg final exp_wenoreg96 exp_wenoreg160 exp_weno4 reps=5 case=3D_performance_test
+name, uuid, driver_version, clocks.max.sm [MHz], clocks.max.memory [MHz], power.limit [W], temperature.gpu
+NVIDIA H200, GPU-5cc9cc46-6c64-fa6d-1e39-2d728f3ef40c, 580.65.06, 1980 MHz, 3201 MHz, 700.00 W, 38
+--- base
+name=base
+git=3a9bb7662db5fb3139e2ee8cbdd6651e4dbe768e
+describe=3a9bb766 Add hemisphere shell particle cloud packing (#1667)
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=432
+built=2026-11-16T04:32:20+08:00 on 25a-lgn04
+--- iso_inline
+name=iso_inline
+git=29f43d6fc6ef9611d0115d585aa85382f2c43105
+describe=29f43d6f NVHPC: always inline small device helpers (-Minline=smallsize:64)
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=416
+built=2026-11-16T04:48:10+08:00 on 25a-lgn04
+--- iso_alias
+name=iso_alias
+git=0d4aadcfa59b57a4479afea370455ee6a25d7666
+describe=0d4aadcf Riemann: alias flux_n/flux_src_n to the solver output buffers, drop the finalize copy
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=435
+built=2026-11-16T04:54:39+08:00 on 25a-lgn04
+--- iso_pack
+name=iso_pack
+git=df9c342c25c49f802589e49ce50a937b8359c850
+describe=df9c342c WENO: pack the reconstruction input once per RHS evaluation
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=653
+built=2026-11-16T05:02:42+08:00 on 25a-lgn04
+--- iso_wreg
+name=iso_wreg
+git=bdff7288ac61e30231f999169bf762d873b6cbbb
+describe=bdff7288 NVHPC: cap m_weno at 128 registers per thread
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=1283
+built=2026-11-16T14:18:20+08:00 on 25a-lgn02
+--- iso_stream
+name=iso_stream
+git=793d987e91fa0577984c33a0a255b0c8da0a4e08
+describe=793d987e Streaming kernels: one thread per cell, equation loop inside
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=1090
+built=2026-11-16T14:15:08+08:00 on 25a-lgn02
+--- inline
+name=inline
+git=82882c42174e0915d9a1db73e0501b4a06637930
+describe=82882c42 NVHPC: always inline small device helpers (-Minline=smallsize:64)
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=440
+built=2026-11-16T04:48:34+08:00 on 25a-lgn04
+--- alias
+name=alias
+git=b92b23ae176e3bb28efe75d116dd4e8925daa19c
+describe=b92b23ae Riemann: alias flux_n/flux_src_n to the solver output buffers, drop the finalize copy
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=419
+built=2026-11-16T04:54:23+08:00 on 25a-lgn04
+--- pack
+name=pack
+git=bbc66c82cf467dbd4ab2af49980f44454e13582e
+describe=bbc66c82 WENO: pack the reconstruction input once per RHS evaluation
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=638
+built=2026-11-16T05:02:29+08:00 on 25a-lgn04
+--- wreg
+name=wreg
+git=039ee7bcc02fa68513c88a93c9970b1e22bbb3e2
+describe=039ee7bc NVHPC: cap m_weno at 128 registers per thread
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=1213
+built=2026-11-16T14:17:11+08:00 on 25a-lgn02
+--- final
+name=final
+git=8cd486abec3d0b6495e5ba789e995a2b8a8f2e3a
+describe=8cd486ab Streaming kernels: one thread per cell, equation loop inside
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=1049
+built=2026-11-16T14:14:28+08:00 on 25a-lgn02
+--- exp_wenoreg96
+name=exp_wenoreg96
+git=ddfb1e17fc413d468001c1e08de342b1010dd26c
+describe=ddfb1e17 EXPERIMENT: per-file flags for m_weno via MFC_WENO_FLAGS
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=1264
+built=2026-11-16T14:18:01+08:00 on 25a-lgn02
+--- exp_wenoreg160
+name=exp_wenoreg160
+git=ddfb1e17fc413d468001c1e08de342b1010dd26c
+describe=ddfb1e17 EXPERIMENT: per-file flags for m_weno via MFC_WENO_FLAGS
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=1151
+built=2026-11-16T14:16:10+08:00 on 25a-lgn02
+--- exp_weno4
+name=exp_weno4
+git=ca0e34e321e7f7c4ad8d988737a7d986ea68f0a2
+describe=ca0e34e3 EXPERIMENT: WENO5 collapse(4) over variables
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=641
+built=2026-11-16T05:03:17+08:00 on 25a-lgn04

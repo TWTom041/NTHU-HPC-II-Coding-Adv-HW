@@ -1,0 +1,22 @@
+job=784005 node=25a-hgpn002 date=2026-11-16T06:42:25+08:00
+variants=pack exp_stream reps=5 case=3D_performance_test
+name, uuid, driver_version, clocks.max.sm [MHz], clocks.max.memory [MHz], power.limit [W], temperature.gpu
+NVIDIA H200, GPU-d5c99210-f798-0a25-faa7-764850671faa, 580.65.06, 1980 MHz, 3201 MHz, 700.00 W, 36
+--- pack
+name=pack
+git=bbc66c82cf467dbd4ab2af49980f44454e13582e
+describe=bbc66c82 WENO: pack the reconstruction input once per RHS evaluation
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=638
+built=2026-11-16T05:02:29+08:00 on 25a-lgn04
+--- exp_stream
+name=exp_stream
+git=1503f4b94c15f469ebe121009fd0e6f3fc1cb6ed
+describe=1503f4b9 EXPERIMENT: per-cell (collapse 3) streaming loops
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=581
+built=2026-11-16T05:05:52+08:00 on 25a-lgn04

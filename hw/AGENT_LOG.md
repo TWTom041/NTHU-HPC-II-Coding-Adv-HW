@@ -28,9 +28,13 @@ optimisation work to one worker agent (this log). Times are Asia/Taipei, 2026-11
 | 04:45 | Commit 1 alone: 0.4024 (no change, bit-identical). Commit 2 alone and 1+2: 0.367 (-9 %), bit-identical | Kept both; commit 1 documented as "removes the remaining LDL, no measurable time" |
 | 04:50 | nsys breakdown: `s_finalize_riemann_solver` (2.3 ms) and `s_pack_weno_input_arr` (2.0 ms) are pure same-layout copies, done per sweep | Commit 3: alias flux_n/flux_src_n to the Riemann output buffers (no copy). Commit 4: pack WENO input once per RHS instead of once per sweep |
 | 05:00 | Experiments on side branches (not merged unless they win): WENO5 `collapse(4)` over variables, `-gpu=maxregcount:128` for `m_weno` only, per-cell `collapse(3)` streaming loops | measured with the same harness; see report section "negative results" |
-| 05:10 | Created GitHub repo, pushed; regression suite (`./mfc.sh test --gpu acc`) on H200 for upstream and optimized commits | failure lists compared, see `hw/results/regtest` |
-
-(The table is extended at the end of the run with the final measurements.)
+| 05:10 | Created GitHub repo (`gh` on the student's other machine), pushed; submitted the regression suite for upstream and optimized commits | the per-user limit of 2 running jobs made the scheduler start a 4-GPU scaling job and a test job first; reordered |
+| 05:20 | SSH ControlMaster socket to nano4 disappeared; new logins need keyboard-interactive auth | per the brief the agent did **not** try to log in; reported the blocker to the main agent, committed the harness and the results already copied, drafted the report |
+| ~13:50 | Student reopened the socket (now on login node lgn02, so the login-node `/tmp` clone and worktrees were gone); results pulled from `/work` | commits 3 and 4 measured: 1.199x and 1.276x cumulative, all bit-identical. Experiments on top of commit 4: `maxregcount:128` for `m_weno` 0.3157 -> 0.2776 ns (1.45x vs baseline), per-cell streaming loops 0.3160 -> 0.2961 ns, WENO `collapse(4)` slower (0.3428, negative) |
+| 13:55 | Both regression runs had failed before running any test: MFC's launcher picks `srun`, and this HPC-X build has no Slurm PMI | fixed in `regtest.sbatch` (`-- -b mpirun`, Open MPI binding off); rerun |
+| 13:56 | Merged the two winning experiments as commits 5 (`039ee7bc`, CMake per-file flag) and 6 (`8cd486ab`); rebuilt everything on the new login node; added a 96/160-register sweep | the comment first claimed "no spills" for maxregcount:128 — ncu showed 5-8 GB local loads per WENO launch, so the comment and report were corrected before committing |
+| 13:56 | First 4-GPU scaling job turned out unusable: its 1-GPU baseline ran at 2.18 ns (5x slower than every other run) while sharing the node with the test job | discarded; only the whole-node 8-GPU jobs are used |
+| 14:20 | PDF: headless Brave hung; xelatex's xdvipdfmx rejected the Noto CJK TTC; LuaLaTeX works | `hw/build_report.sh` |
 
 ## Places where the agent was wrong and how it was caught
 

@@ -1,0 +1,32 @@
+ Simulating a case-optimized 200x200x200 case on 1 rank(s) with OpenACC offloading.
+ [  0%]  Time step        1 of 31 @ t_step =        0 Time Avg = 0.000000E+00 Time/step= 0.000000E+00 ETA (HH:MM:SS) = 0:00:00
+ [  4%]  Time step        2 of 31 @ t_step =        1 Time Avg = 0.000000E+00 Time/step= 7.580900E-02 ETA (HH:MM:SS) = 0:00:00
+ [  7%]  Time step        3 of 31 @ t_step =        2 Time Avg = 0.000000E+00 Time/step= 7.081795E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 10%]  Time step        4 of 31 @ t_step =        3 Time Avg = 7.083297E-02 Time/step= 7.083297E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 13%]  Time step        5 of 31 @ t_step =        4 Time Avg = 7.078803E-02 Time/step= 7.074308E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 17%]  Time step        6 of 31 @ t_step =        5 Time Avg = 7.083400E-02 Time/step= 7.092595E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 20%]  Time step        7 of 31 @ t_step =        6 Time Avg = 7.077146E-02 Time/step= 7.058382E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 23%]  Time step        8 of 31 @ t_step =        7 Time Avg = 7.069554E-02 Time/step= 7.039189E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 26%]  Time step        9 of 31 @ t_step =        8 Time Avg = 7.065578E-02 Time/step= 7.045698E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 30%]  Time step       10 of 31 @ t_step =        9 Time Avg = 7.061621E-02 Time/step= 7.037878E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 33%]  Time step       11 of 31 @ t_step =       10 Time Avg = 7.066005E-02 Time/step= 7.096696E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 36%]  Time step       12 of 31 @ t_step =       11 Time Avg = 7.064695E-02 Time/step= 7.054210E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 39%]  Time step       13 of 31 @ t_step =       12 Time Avg = 7.062366E-02 Time/step= 7.041407E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 42%]  Time step       14 of 31 @ t_step =       13 Time Avg = 7.060768E-02 Time/step= 7.044792E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 46%]  Time step       15 of 31 @ t_step =       14 Time Avg = 7.060204E-02 Time/step= 7.053995E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 49%]  Time step       16 of 31 @ t_step =       15 Time Avg = 7.058820E-02 Time/step= 7.042217E-02 ETA (HH:MM:SS) = 0:00:01
+ [ 52%]  Time step       17 of 31 @ t_step =       16 Time Avg = 7.057932E-02 Time/step= 7.046390E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 55%]  Time step       18 of 31 @ t_step =       17 Time Avg = 7.057125E-02 Time/step= 7.045817E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 59%]  Time step       19 of 31 @ t_step =       18 Time Avg = 7.056266E-02 Time/step= 7.043386E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 62%]  Time step       20 of 31 @ t_step =       19 Time Avg = 7.055757E-02 Time/step= 7.047606E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 65%]  Time step       21 of 31 @ t_step =       20 Time Avg = 7.055026E-02 Time/step= 7.042599E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 68%]  Time step       22 of 31 @ t_step =       21 Time Avg = 7.054362E-02 Time/step= 7.042408E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 71%]  Time step       23 of 31 @ t_step =       22 Time Avg = 7.054129E-02 Time/step= 7.049704E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 75%]  Time step       24 of 31 @ t_step =       23 Time Avg = 7.053475E-02 Time/step= 7.040405E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 78%]  Time step       25 of 31 @ t_step =       24 Time Avg = 7.053045E-02 Time/step= 7.044005E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 81%]  Time step       26 of 31 @ t_step =       25 Time Avg = 7.052872E-02 Time/step= 7.049084E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 84%]  Time step       27 of 31 @ t_step =       26 Time Avg = 7.052499E-02 Time/step= 7.043910E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 88%]  Time step       28 of 31 @ t_step =       27 Time Avg = 7.052227E-02 Time/step= 7.045698E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 91%]  Time step       29 of 31 @ t_step =       28 Time Avg = 7.051991E-02 Time/step= 7.046103E-02 ETA (HH:MM:SS) = 0:00:00
+ [ 94%]  Time step       30 of 31 @ t_step =       29 Time Avg = 7.051562E-02 Time/step= 7.040405E-02 ETA (HH:MM:SS) = 0:00:00
+ Performance:   0.3644812500000000      ns/gp/eq/rhs

@@ -121,7 +121,18 @@ baseline 的 ncu：HLLC y/z 每次 launch 9.8 GB local load + 5.5 GB local store
 - `src/simulation/m_riemann_state.fpp:1188-1195` 等：`flux_rsx_aliased` 為真時 `s_finalize_riemann_solver` 跳過 flux 與 flux_src 的複製（cylindrical 的 `flux_gsrc` 仍照舊複製）。
 - 安全性：這些 buffer 本來就是「每個 sweep 的暫存」——所有 consumer（flux difference、characteristic BC 修改邊界 flux、NC source term）都在下一個 sweep 的 Riemann solve 之前用完；IGR 與 hypoelastic dual-pass HLLD（第二次 finalize 會重填 flux_n）不啟用。副作用：少配置一份 sys_size 個場的 flux。
 
-@@ALIAS_EVIDENCE@@
+證據（`hw/results/raw/bench_all`、`prof_all`；同一個 job、5 次交錯重複）：
+
+| 版本 | grind（中位數） | 相對 base | nsys：finalize 複製 ms/stage |
+|---|---:|---:|---:|
+| base | 0.4028 | 1.000 | 2.03 |
+| 只有 4.3（`iso_alias`，套在 3a9bb766 上） | 0.3721 | 1.082 | 0 |
+| 4.2 + 4.1（`inline`） | 0.3661 | 1.100 | 2.03 |
+| 4.2 + 4.1 + 4.3（`alias`） | 0.3360 | 1.199 | 0 |
+
+finalize 的 6 個 kernel（每方向 flux 一個、flux_src 一個）從 nsys 中完全消失，省下約 2.2 ms/stage，
+與預期（9 個場 × 8.2 M × 16 B ≈ 1.2 GB／sweep，在 1.8 TB/s 下約 0.6 ms）一致。最終守恆量與 baseline bit-identical。
+把 `flux_rsx_vf` 宣告成 `target` 之後，HLLC kernel（ncu）在 `inline` 是 1.37 / 1.42 / 1.43 ms（x/y/z），在 `pack`（含此 commit）是 1.41 / 1.42 / 1.44 ms，沒有觀察到 aliasing 造成的明顯損失（x 方向 +3%）。
 
 ## 4.4 WENO 輸入每個 RHS 只 pack 一次（commit `bbc66c82`）
 
@@ -129,11 +140,69 @@ baseline 的 ncu：HLLC y/z 每次 launch 9.8 GB local load + 5.5 GB local store
 - `src/simulation/m_weno.fpp:921-927` 新增 `s_weno_input_changed`；`src/simulation/m_rhs.fpp:695-696` 在每次 RHS 重新計算 `q_prim_qp`（cons→prim + halo）之後呼叫。
 - 其他呼叫（viscous 梯度、拆開重建的 surface tension / `weno_Re_flux` 路徑）傳入不同的場組合，仍然每次重新 pack，行為不變。
 
-@@PACK_EVIDENCE@@
+證據：
+
+| 版本 | grind（中位數） | 相對 base | nsys：pack ms/stage |
+|---|---:|---:|---:|
+| base | 0.4028 | 1.000 | 2.01 |
+| 只有 4.4（`iso_pack`） | 0.3823 | 1.053 | 0.67 |
+| 4.1–4.4（`pack`） | 0.3157 | 1.276 | 0.67 |
+
+pack 從每個 stage 3 次變成 1 次（270 → 90 次 launch），時間正好剩 1/3。bit-identical。
+
+## 4.5 WENO：只對 `m_weno` 限制 128 個 register（commit `039ee7bc`）
+
+HW-1 的第二個建議。`cmake/MFCTargets.cmake:80-87` 只對 `m_weno.fpp.f90` 加 `-gpu=maxregcount:128`（HLLC kernel 需要約 150 個
+register，不能全域限制）。先在 side branch `exp-wenoflags` 用環境變數 `MFC_WENO_FLAGS` 試 96 / 128 / 160，128 效果最好後才寫進 CMake。
+
+| 版本 | WENO regs | 理論 / 實際 occupancy | local ld / st（GB/launch） | FP64 pipe | WENO ms/stage | grind |
+|---|---:|---:|---:|---:|---:|---:|
+| `pack`（預設） | 188–196 | 12.5 / 12.2% | 0 / 0 | 29% | 8.46 | 0.3157 |
+| `pack` + maxregcount:128 | 128 | 25 / 24% | 5.2–7.7 / 2.2–2.5 | 39–43% | 6.01 | 0.2776 |
+
+限制 register 之後有 spill（每次 launch 5–8 GB 的 local load），但大多被 L1（hit 58–84%）與 L2 接住；occupancy 加倍讓
+FP64 指令鏈的延遲被藏住，WENO 快 29%，整體再快 12%。這與 HLLC 的情況（local memory 是負擔）相反：WENO 是 latency bound，
+多一倍的 warp 比少掉的 spill 重要。結果仍 bit-identical（register 配置不改變算術）。
+
+register 上限掃描（都套在 commit 4 之上，`bench_final`，5 次中位數）：96 → 0.2965、**128 → 0.2774**、160 → 0.2825、不限制（188–196）→ 0.3153 ns。
+160 個 register 時理論 occupancy 只有 18.75%（65536 / (160 × 32) = 12 warps/SM）；96 時較差的原因推測是 spill 量更大（[推論]，96/160 沒有另外跑 ncu）。128 是最佳點。最終版 SASS：WENO kernel 128 registers、38–43 LDL / 40–45 STL。
+
+## 4.6 Streaming kernel：每個 thread 一個 cell（commit `8cd486ab`）
+
+RHS 複製（`m_rhs.fpp:646-656`）、三個方向的 flux difference（`m_rhs.fpp:1157-1170, 1234-1247, 1397-1410`）與 RK 更新
+（`m_time_steppers.fpp:486-506`）原本是 `collapse(4)` 遍歷（方程, z, y, x）：每個元素都要從攤平的 index 還原 4 個 index
+（`s_compute_rhs` 的 loop index 是 64-bit，等於 64-bit 除法）並重新讀 derived type 的 descriptor，ncu 量到每個元素約
+250–320 條指令、DRAM 只用 31–41%。改成 `collapse(3)` 遍歷 cell、thread 內循序跑 8 條方程式，算術完全不變。
+
+| 版本 | grind（中位數，5 次） | 相對前一版 |
+|---|---:|---:|
+| `pack` | 0.3160 | 1.000 |
+| `pack` + 4.6（`exp_stream`） | 0.2961 | 1.067 |
+
+@@STREAM_PROFILE@@
 
 # 5. 累積加速與正確性
 
-@@CUMULATIVE@@
+同一個 job（`hw/results/raw/bench_final`，job 785519，node 25a-hgpn002），每個版本 5 次交錯重複；「單獨」= 只把該 commit
+cherry-pick 到 3a9bb766 上；「累積」= main 上到該 commit 為止。所有版本最後一步的 8 × 8.12 M 個守恆量與 baseline
+**逐 byte 相同**（`compare_*.txt`），baseline 本身兩次執行也逐 byte 相同（`determinism_base.txt`）。
+
+| commit | 內容 | 單獨 grind | 單獨加速 | 累積 grind | 累積加速 |
+|---|---|---:|---:|---:|---:|
+| 3a9bb766 | baseline | 0.4026（spread 0.36%） | 1.000 | 0.4026 | 1.000 |
+| 06ee1a63 | HLLC 方向常數 | 0.4031* | 1.00 | 0.4031* | 1.00 |
+| 82882c42 | `-Minline=smallsize:64` | 0.3665 | 1.099 | 0.3657 | 1.101 |
+| b92b23ae | flux 別名，去掉 finalize 複製 | 0.3718 | 1.083 | 0.3355 | 1.200 |
+| bbc66c82 | WENO input 每個 RHS pack 一次 | 0.3820 | 1.054 | 0.3153 | 1.277 |
+| 039ee7bc | `m_weno` maxregcount:128 | 0.3645 | 1.105 | 0.2774 | 1.451 |
+| 8cd486ab | streaming kernel 每 thread 一個 cell | 0.3821 | 1.054 | **0.2581**（spread 0.93%） | **1.560** |
+
+\* commit 1 來自 `bench_all`（同樣條件的前一個 job）：0.4031 vs base 0.4028。
+
+單獨加速相乘是 1.099 × 1.083 × 1.054 × 1.105 × 1.054 = 1.46，小於累積的 1.56：各項省下的是不同 kernel 的時間，
+整體變短之後同樣省下的毫秒數占比變大（例如 maxregcount:128 單獨 +10.5%，在 commit 4 之上 +13.7%）。
+
+**MFC regression suite**：@@REGTEST@@
 
 # 6. 多 GPU（同一節點 strong scaling）
 
@@ -141,11 +210,20 @@ baseline 的 ncu：HLLC y/z 每次 launch 9.8 GB local load + 5.5 GB local store
 
 # 7. 負面結果與沒有採用的實驗
 
-@@NEGATIVE@@
+| 實驗 | 結果 | 原因（profiler 證據） | 處理 |
+|---|---|---|---|
+| HLLC 方向 index 改常數（commit 1）單獨 | 0.4031 vs 0.4028，無效 | 真正的 local memory 來源是沒 inline 的 device call（§4.1），只改 index 時 LDL 222 → 222 | 保留（與 inline 合併後 LDL 74 → 12），報告標示「無可量測加速」 |
+| WENO5 `collapse(4)`（每個 thread 一個變數 × cell，branch `exp-weno4`） | 0.3428 vs 0.3153，**慢 8.7%** | registers 188 → 130–140、occupancy 12.5 → 18.8%，但 warp 指令數 0.8 G → 1.45 G：每個變數都重新載入 stencil 係數與重算 index，FP64 pipe 29 → 23–26% | 不合併 |
+| WENO `maxregcount:96` / `160` | 0.2965 / 0.2825，都比 128（0.2774）差 | 160：occupancy 只有 18.75%；96：推測是 spill 更多（未做 ncu） | 選 128 |
+| `maxregcount` 全域套用 | 未採用 | HLLC 需要 146–156 registers，全域上限會讓它 spill；所以只對 `m_weno` 單一檔案設定 | 只設定 per-file |
+| 4 卡 scaling job（`mgpu4`） | 1 卡就 2.18 ns，是其他所有量測的 5 倍 | 與 regression test job 同時在同一節點（25a-hgpn009）；原因未查明 | 整批丟棄，只用整節點 8 卡 job |
+
+沒做的部分：§3 的 flux difference + advection source 融合（約 0.7 ms/stage，需要改動多種 `adv_src_mode` 分支）、
+RHS 複製改成 alias（`q_cons_qp` 的 adv 欄位被 halo 填值，需要更仔細的證明），以及 NVHPC 25.9 vs 26.3 的比較，都因時間留給量測與正確性驗證而沒有做。
 
 # 8. AI agent 的使用方式
 
-- **誰決定什麼**：學生決定題目（MFC、nano4 H200）、起點（與 HW-1 相同的 commit 與 case，讓 HW-1 的結論變成可驗證的假設）、限制（quota、不可輸入密碼、截止時間），並要求 agent 完成程式、量測與報告（投影片、影片、繳交由學生自己做）。
+- **誰決定什麼**：學生決定題目（MFC、nano4 H200）、起點（與 HW-1 相同的 commit 與 case，讓 HW-1 的結論變成可驗證的假設）、限制（quota、不可輸入密碼、截止時間），並要求 AI agent 完成整份作業。程式修改、量測與這份報告由 worker agent 完成；投影片、報告影片與 eeclass 繳交也應學生要求由主 agent 製作與處理（不是學生自己做的）。學生負責提出需求、提供 nano4 的登入連線（SSH ControlMaster；連線中斷時由學生重新開啟），以及最後的檢查。
 - **流程**：主 agent 先寫 brief（作業說明、HW-1 摘要、nano4 存取與 quota 規則），再把整個優化工作交給一個 worker agent。worker 透過已建立的 SSH ControlMaster 操作 nano4：login node 編譯、Slurm 跑量測、`/work` 只放 binary 與小檔案。每個優化都是獨立 commit，另外在 side branch 上做實驗（失敗的不進 main）。
 - **agent 做錯、怎麼被抓到**：(1) HLLC local memory 的根因判斷錯誤（見 §4.1–4.2），由「修完後 SASS 的 LDL 數沒變」抓到；(2) 第一批 sbatch 因為 MPI binding 與 HPC-X 路徑失敗；(3) ncu 匯出時三個方向的 kernel 被合併成同一名稱。詳見 `hw/AGENT_LOG.md`。
 - **驗證原則**：每個速度數字都來自 5 次交錯重複；每個保留的修改都與 baseline 逐 byte 比較最終守恆量，並跑 MFC 的 regression suite。

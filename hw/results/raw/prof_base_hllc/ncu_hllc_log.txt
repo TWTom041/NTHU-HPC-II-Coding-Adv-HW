@@ -1,0 +1,5 @@
+==PROF== Profiling "m_rhs_s_compute_advection_source_term_s_add_directional_advection_source_terms_1701": 0%....50%....100% - 20 passes
+==PROF== Profiling "m_time_steppers_s_tvd_rk_486": 0%....50%....100% - 20 passes
+ Performance:    291.9092515625000      ns/gp/eq/rhs
+==PROF== Disconnected from process 1281022
+==PROF== Report: /tmp/mfcadv-783951/ncu-hllc/ncu.ncu-rep

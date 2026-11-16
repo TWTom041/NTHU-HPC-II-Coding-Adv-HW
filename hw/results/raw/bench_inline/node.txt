@@ -1,0 +1,40 @@
+job=783958 node=25a-hgpn012 date=2026-11-16T04:50:15+08:00
+variants=base iso_inline hllc inline reps=5 case=3D_performance_test
+name, uuid, driver_version, clocks.max.sm [MHz], clocks.max.memory [MHz], power.limit [W], temperature.gpu
+NVIDIA H200, GPU-80fa085c-c2e5-b19a-0f70-fa29b6b249c7, 580.65.06, 1980 MHz, 3201 MHz, 700.00 W, 36
+--- base
+name=base
+git=3a9bb7662db5fb3139e2ee8cbdd6651e4dbe768e
+describe=3a9bb766 Add hemisphere shell particle cloud packing (#1667)
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=432
+built=2026-11-16T04:32:20+08:00 on 25a-lgn04
+--- iso_inline
+name=iso_inline
+git=29f43d6fc6ef9611d0115d585aa85382f2c43105
+describe=29f43d6f NVHPC: always inline small device helpers (-Minline=smallsize:64)
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=416
+built=2026-11-16T04:48:10+08:00 on 25a-lgn04
+--- hllc
+name=hllc
+git=06ee1a63033c8440456695beaf2d46a56ab5cdb4
+describe=06ee1a63 HLLC: compile-time direction maps keep private arrays in registers
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=402
+built=2026-11-16T04:31:50+08:00 on 25a-lgn04
+--- inline
+name=inline
+git=82882c42174e0915d9a1db73e0501b4a06637930
+describe=82882c42 NVHPC: always inline small device helpers (-Minline=smallsize:64)
+nvhpc=26.3 (nvfortran 26.3-0 64-bit target on x86-64 Linux -tp sapphirerapids )
+fflags=
+case=examples/3D_performance_test/case.py
+build_seconds=440
+built=2026-11-16T04:48:34+08:00 on 25a-lgn04

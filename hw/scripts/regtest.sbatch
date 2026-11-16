@@ -24,7 +24,10 @@ SRC=/tmp/mfcadv-test-$SLURM_JOB_ID
 mkdir -p "$RES"
 git clone -q https://github.com/TWTom041/NTHU-HPC-II-Coding-Adv-HW.git "$SRC" && cd "$SRC" && git checkout -q "$REF"
 git log -1 --format='%H %s' > "$RES/ref.txt"
-./mfc.sh test --gpu acc -j 12 -g 0 1 ${TEST_ARGS:-} > "$RES/test.log" 2>&1
+# MFC's default launcher search picks srun first; this HPC-X Open MPI has no Slurm PMI support ("getting job size
+# failed" in a first attempt), so force mpirun (-b) and disable Open MPI's bind-to-core inside the Slurm cgroup.
+export OMPI_MCA_hwloc_base_binding_policy=none
+./mfc.sh test --gpu acc -j 12 -g 0 1 ${TEST_ARGS:-} -- -b mpirun > "$RES/test.log" 2>&1
 echo "exit=$?" >> "$RES/ref.txt"
 cp tests/failed_uuids.txt "$RES/" 2>/dev/null || true
 grep -E "passed|failed|skipped|TESTS" "$RES/test.log" | tail -8 > "$RES/summary.txt"

@@ -1,0 +1,74 @@
+{
+ "ref": "/tmp/mfcadv-785519/final_base_1.dat",
+ "test": "/tmp/mfcadv-785519/final_base_1.dat",
+ "cells": 8120601,
+ "vars": [
+  {
+   "var": "alpha_rho1",
+   "max_abs_ref": 1000.0,
+   "max_abs_diff": 0.0,
+   "max_rel_diff": 0.0,
+   "max_diff_over_field_max": 0.0,
+   "n_diff": 0
+  },
+  {
+   "var": "alpha_rho2",
+   "max_abs_ref": 0.9,
+   "max_abs_diff": 0.0,
+   "max_rel_diff": 0.0,
+   "max_diff_over_field_max": 0.0,
+   "n_diff": 0
+  },
+  {
+   "var": "rho_u",
+   "max_abs_ref": 7.211105859070161,
+   "max_abs_diff": 0.0,
+   "max_rel_diff": 0.0,
+   "max_diff_over_field_max": 0.0,
+   "n_diff": 0
+  },
+  {
+   "var": "rho_v",
+   "max_abs_ref": 7.211105859079027,
+   "max_abs_diff": 0.0,
+   "max_rel_diff": 0.0,
+   "max_diff_over_field_max": 0.0,
+   "n_diff": 0
+  },
+  {
+   "var": "rho_w",
+   "max_abs_ref": 7.21110585907927,
+   "max_abs_diff": 0.0,
+   "max_rel_diff": 0.0,
+   "max_diff_over_field_max": 0.0,
+   "n_diff": 0
+  },
+  {
+   "var": "E",
+   "max_abs_ref": 698874999.9999998,
+   "max_abs_diff": 0.0,
+   "max_rel_diff": 0.0,
+   "max_diff_over_field_max": 0.0,
+   "n_diff": 0
+  },
+  {
+   "var": "alpha1",
+   "max_abs_ref": 0.9,
+   "max_abs_diff": 0.0,
+   "max_rel_diff": 0.0,
+   "max_diff_over_field_max": 0.0,
+   "n_diff": 0
+  },
+  {
+   "var": "alpha2",
+   "max_abs_ref": 0.9,
+   "max_abs_diff": 0.0,
+   "max_rel_diff": 0.0,
+   "max_diff_over_field_max": 0.0,
+   "n_diff": 0
+  }
+ ],
+ "bit_identical": true,
+ "all_finite": true,
+ "worst_diff_over_field_max": 0.0
+}

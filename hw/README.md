@@ -38,4 +38,4 @@ python3 $S/nsys_groups.py results/prof/nsys_base_cuda_gpu_kern_sum.csv results/p
 python3 $S/ncu_summary.py results/prof/ncu_opt_raw.csv
 ```
 
-Report PDF: `uv run --with markdown --with latex2mathml python hw/build_report.py` (headless Chromium; set `CHROME=`).
+Report PDF: `hw/build_report.sh` (pandoc + LuaLaTeX, Noto Sans CJK TC).
