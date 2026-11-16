@@ -6,6 +6,7 @@
 import argparse
 import json
 import pathlib
+import time
 
 import opencc
 import soundfile as sf
@@ -21,7 +22,6 @@ ap.add_argument("sentences")
 ap.add_argument("outdir")
 ap.add_argument("--models", default="models")
 ap.add_argument("--device", default="cuda:0")
-ap.add_argument("--batch", type=int, default=8)
 args = ap.parse_args()
 
 # The model is trained mostly on Simplified Chinese: feed it Simplified (same pronunciation, fewer misreadings).
@@ -47,10 +47,17 @@ prompt = clone.create_voice_clone_prompt(ref_audio=str(ref), ref_text=t2s.conver
 
 items = [(i, t2s.convert(t)) for i, t in json.loads(pathlib.Path(args.sentences).read_text())
          if not (out / f"{i}.wav").exists()]
-for k in range(0, len(items), args.batch):
-    chunk = items[k:k + args.batch]
-    wavs, sr = clone.generate_voice_clone(text=[t for _, t in chunk], language=["Chinese"] * len(chunk),
-                                          voice_clone_prompt=prompt)
-    for (i, _), w in zip(chunk, wavs):
-        sf.write(out / f"{i}.wav", w, sr)
-    print(f"{k + len(chunk)}/{len(items)}", flush=True)
+# Sampling occasionally fails to emit EOS and babbles until max_new_tokens (2048 frames = 170 s). Bound the length
+# by the text (12.5 codec frames/s; Mandarin narration ~4-5 characters/s) and retry sentences that hit the bound.
+for n, (i, text) in enumerate(items, 1):
+    budget = int(12.5 * (len(text) / 2.5 + 3))
+    for attempt in range(4):
+        t0 = time.time()
+        wavs, sr = clone.generate_voice_clone(text=text, language="Chinese", voice_clone_prompt=prompt,
+                                              max_new_tokens=budget)
+        secs = len(wavs[0]) / sr
+        if secs < 0.95 * budget / 12.5:
+            break
+        print(f"  {i}: hit the length bound ({secs:.1f} s), retry {attempt + 1}", flush=True)
+    sf.write(out / f"{i}.wav", wavs[0], sr)
+    print(f"{n}/{len(items)} {i} {secs:.1f} s audio in {time.time() - t0:.1f} s", flush=True)

@@ -42,7 +42,9 @@ sentences = [[x.strip() for x in re.findall(r"[^。！？]+[。！？]?", s.repl
 # Spoken form for the TTS (subtitles keep the written form): spell out acronyms/model numbers the voice misreads.
 SAY = {"H200": "H 兩百", "H100": "H 一百", "nano4": "nano 四", "HW1": "HW 一", "MFC": "M F C", "HLLC": "H L L C",
        "WENO": "WENO", "PTX": "P T X", "SASS": "S A S S", "CMake": "C make", "GPU": "G P U", "MPI": "M P I",
-       "HPC X": "H P C X", "SSH": "S S H", "Qwen3 TTS": "Qwen 三 T T S", "AI agent": "A I agent", "HBM": "H B M"}
+       "HPC X": "H P C X", "SSH": "S S H", "Qwen3 TTS": "Qwen 三 T T S", "AI agent": "A I agent", "HBM": "H B M",
+       "SC26": "S C 二十六", "3D": "三 D", " GB": " G B", "SM": "S M", "srun": "S run", "rdma mpi": "R D M A M P I",
+       "Coding Adv": "Coding advanced", "eeclass": "E E class", "sudo": "sudo", "brief": "brief"}
 
 
 def spoken(text):

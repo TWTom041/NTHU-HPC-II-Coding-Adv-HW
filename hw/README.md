@@ -21,6 +21,10 @@ Experiment branches (not merged): `exp-weno4` (WENO `collapse(4)`, slower), `exp
 
 - Report (zh-TW): [`report.md`](report.md) / [`report.pdf`](report.pdf); agent timeline: [`AGENT_LOG.md`](AGENT_LOG.md)
 - Raw and summarised measurements: [`results/`](results/)
+- Slides: [`video/slides.pdf`](video/slides.pdf) (Marp source [`video/slides.md`](video/slides.md)); presentation video
+  [`video/presentation.mp4`](video/presentation.mp4) with subtitles [`video/presentation.srt`](video/presentation.srt).
+  Narration [`video/narration.md`](video/narration.md) is synthesised with Qwen3-TTS (`video/tts_qwen.py`, a designed
+  narrator voice, not a clone of anyone); rebuild with `python3 hw/video/build_video.py`.
 
 ## Reproduce (nano4)
 

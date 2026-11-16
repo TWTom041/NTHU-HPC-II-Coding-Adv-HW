@@ -292,7 +292,7 @@ RHS 複製改成 alias（`q_cons_qp` 的 adv 欄位被 halo 填值，需要更�
 
 # 8. AI agent 的使用方式
 
-- **誰決定什麼**：學生決定題目（MFC、nano4 H200）、起點（與 HW-1 相同的 commit 與 case，讓 HW-1 的結論變成可驗證的假設）、限制（quota、不可輸入密碼、截止時間），並要求 AI agent 完成整份作業。程式修改、量測與這份報告由 worker agent 完成；投影片、報告影片與 eeclass 繳交也應學生要求由主 agent 製作與處理（不是學生自己做的）。學生負責提出需求、提供 nano4 的登入連線（SSH ControlMaster；連線中斷時由學生重新開啟），以及最後的檢查。
+- **誰決定什麼**：學生只給了一句指令（「把 eeclass 上的作業完成」），並處理只有人能做的步驟：登入 eeclass、開啟到 nano4 的 SSH ControlMaster 連線（中途斷線後重開）、需要 sudo 的地方自己輸入密碼、回答 agent 提出的選擇（例如影片旁白要用較好的語音合成）。題目（MFC、nano4 H200）、起點（與 HW-1 相同的 commit 與 case，讓 HW-1 的結論變成可驗證的假設）、優化方向與限制（quota、不可替使用者輸入密碼、截止時間）都是主 agent 讀了作業說明與 HW-1 報告後決定的。程式修改、量測與這份報告由 worker agent 完成；投影片、報告影片（旁白由開源 Qwen3-TTS 合成）與 eeclass 繳交由主 agent 完成。
 - **流程**：主 agent 先寫 brief（作業說明、HW-1 摘要、nano4 存取與 quota 規則），再把整個優化工作交給一個 worker agent。worker 透過已建立的 SSH ControlMaster 操作 nano4：login node 編譯、Slurm 跑量測、`/work` 只放 binary 與小檔案。每個優化都是獨立 commit，另外在 side branch 上做實驗（失敗的不進 main）。
 - **agent 做錯、怎麼被抓到**：(1) HLLC local memory 的根因判斷錯誤（見 §4.1–4.2），由「修完後 SASS 的 LDL 數沒變」抓到；(2) 第一批 sbatch 因為 MPI binding 與 HPC-X 路徑失敗；(3) ncu 匯出時三個方向的 kernel 被合併成同一名稱。詳見 `hw/AGENT_LOG.md`。
 - **驗證原則**：每個速度數字都來自 5 次交錯重複；每個保留的修改都與 baseline 逐 byte 比較最終守恆量，並跑 MFC 的 regression suite。
