@@ -35,6 +35,10 @@ optimisation work to one worker agent (this log). Times are Asia/Taipei, 2026-11
 | 13:56 | Merged the two winning experiments as commits 5 (`039ee7bc`, CMake per-file flag) and 6 (`8cd486ab`); rebuilt everything on the new login node; added a 96/160-register sweep | the comment first claimed "no spills" for maxregcount:128 — ncu showed 5-8 GB local loads per WENO launch, so the comment and report were corrected before committing |
 | 13:56 | First 4-GPU scaling job turned out unusable: its 1-GPU baseline ran at 2.18 ns (5x slower than every other run) while sharing the node with the test job | discarded; only the whole-node 8-GPU jobs are used |
 | 14:20 | PDF: headless Brave hung; xelatex's xdvipdfmx rejected the Noto CJK TTC; LuaLaTeX works | `hw/build_report.sh` |
+| 14:20–15:50 | Final measurements: `bench_final` (14 variants x 5), `prof_final` (nsys + ncu), full regression suite for upstream and final | final 0.2581 ns (1.560x), all bit-identical; suite: 678 passed / 8 failed / 34 skipped for both, the same 8 UUIDs |
+| 15:20 | The 8 failures were all 2-rank tests: `mpirun` saw one slot in a one-task Slurm job ("not enough slots") | reran only these 8 with Open MPI oversubscription: upstream 8/8; final 7/8, the eighth aborted inside UCX during `MPI_Init` of `syscheck` (before MFC code runs); rerun alone: passed |
+| 16:00 | Scaling: a 4-GPU job for the final version (insurance) and a whole-node 8-GPU job, which waited for other users of the account (account GPU limit) | 1-GPU runs in the shared-node 4-GPU job were 12-19% slower than in exclusive jobs, so that job is not used |
+| 17:10 | Whole-node 8-GPU job finished | 8 x H200, rdma_mpi=T: base 0.0716, final 0.0512 ns (1.40x); rdma_mpi=T alone 1.58x over the default; all multi-rank results bit-identical to 1 GPU. Report, PDF, push |
 
 ## Places where the agent was wrong and how it was caught
 

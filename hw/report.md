@@ -17,7 +17,7 @@ date: 2026-11-16
   3. streaming kernel：兩個完全多餘的整場複製（finalize、每個 sweep 重複的 WENO pack）直接拿掉，另外把 collapse(4) 改成一個 thread 一個 cell，讓 flux difference 等 kernel 的頻寬從 41% 提高到 64%。
 - **負面結果**：WENO collapse(4) 慢 8.7%；register 上限 96/160 都比 128 差；runtime-index 修正單獨沒有加速。
 - **正確性**：MFC regression suite（H200，720 個測試）原版與最終版結果相同：678 passed、8 個 2-rank 測試因 Slurm 下的 `mpirun` slot 設定無法啟動；修正 launcher 後這 8 個也都通過（見 §5）。
-- **多 GPU**：@@MGPU_SHORT@@
+- **多 GPU（同一節點 8 × H200，201³ strong scaling）**：GPU-aware MPI（`rdma_mpi=T`）是最大的非程式槓桿（8 卡 0.1132 → 0.0716 ns，1.58×）；加上程式優化後 8 卡 0.0512 ns，相對預設設定 2.21×、相對單卡 baseline 7.87×。1/2/4/8 卡結果都與 1 卡逐 byte 相同。
 
 # 1. 測資選擇與理由
 
@@ -37,7 +37,7 @@ date: 2026-11-16
 | Driver / 編譯器 | driver 580.65.06（CUDA 13.0）；NVHPC 26.3（nvfortran，內附 CUDA 13.1、HPC-X 2.25.1 Open MPI 4.1） |
 | Build | `./mfc.sh build -t pre_process simulation --gpu acc --case-optimization -i examples/3D_performance_test/case.py`，`MFC_CUDA_CC=90`；在 login node 的 `/tmp` 編譯（約 2.5–7 分鐘），只把 52 MB 的 binary 放到 `/work`（quota 只剩 2.5 GB） |
 | 執行 | `mpirun --bind-to none -np 1 simulation`（Slurm cgroup 下 Open MPI 預設 bind core 0 會失敗；HPC-X 是 relocated install，需要 `OPAL_PREFIX`）。在 compute node 的 `/tmp` 執行，每個 job 先跑一次 pre_process 產生共用的初始條件 |
-| Profiler | Nsight Systems 2025.x（`nsys profile -t cuda,nvtx,openacc`，完整 30 步）；Nsight Compute（`--clock-control none`，3 步、取最後一步每個 kernel 的值）；靜態資源：`cuobjdump -res-usage` 與 SASS 中 `LDL`/`STL` 指令數（`hw/scripts/kernel_resources.sh`） |
+| Profiler | Nsight Systems 2026.1.1（`nsys profile -t cuda,nvtx,openacc`，完整 30 步）；Nsight Compute 2025.4.1（`--clock-control none`，3 步、取最後一步每個 kernel 的值）；靜態資源：`cuobjdump -res-usage` 與 SASS 中 `LDL`/`STL` 指令數（`hw/scripts/kernel_resources.sh`） |
 
 H100（HW-1）與 H200 的差別：H200 是同一顆 GH100 晶片，SM 數、clock、L2 都一樣，差在記憶體（HBM3e 141 GB、4.8 TB/s，
 H100 SXM 是 80 GB、3.35 TB/s）。HW-1 在 H100 + NVHPC 24.7 量到 0.424 ns；這次 baseline 在 H200 + NVHPC 26.3 是
@@ -124,7 +124,7 @@ baseline 的 ncu：HLLC y/z 每次 launch 9.8 GB local load + 5.5 GB local store
 ## 4.3 Riemann flux：別名取代 finalize 複製（commit `b92b23ae`）
 
 - `src/simulation/m_riemann_solvers.fpp:106-115`：`flux_rsx_vf`、`flux_src_rsx_vf` 改用與 `flux_n` 相同的 `idwbuff` 邊界配置（涵蓋 solver 寫的所有面：sweep 方向 −1:m，其他方向 0:n / 0:p）。
-- `src/simulation/m_rhs.fpp:574-619` 新增 `s_alias_riemann_flux_buffers`：把 `flux_n(1)%vf(l)%sf` 與 `flux_src_n(1)` 的 advection 列以 pointer bounds-remapping 指到這兩個 buffer 的切片（`GPU_ENTER_DATA(attach=…)`），`flux_n(2:3)` 原本就 alias 到 `flux_n(1)`，重新指一次即可。`m_start_up.fpp:947` 在 Riemann module 初始化後呼叫。
+- `src/simulation/m_rhs.fpp:574-619` 新增 `s_alias_riemann_flux_buffers`：把 `flux_n(1)%vf(l)%sf` 與 `flux_src_n(1)` 的 advection 列以 pointer bounds-remapping 指到這兩個 buffer 的切片（`GPU_ENTER_DATA(attach=…)`），`flux_n(2:3)` 原本就 alias 到 `flux_n(1)`，重新指一次即可。`m_start_up.fpp:947` 在 Riemann module 初始化後呼叫。（行號以最終 commit 8cd486ab 為準，下同。）
 - `src/simulation/m_riemann_state.fpp:1188-1195` 等：`flux_rsx_aliased` 為真時 `s_finalize_riemann_solver` 跳過 flux 與 flux_src 的複製（cylindrical 的 `flux_gsrc` 仍照舊複製）。
 - 安全性：這些 buffer 本來就是「每個 sweep 的暫存」——所有 consumer（flux difference、characteristic BC 修改邊界 flux、NC source term）都在下一個 sweep 的 Riemann solve 之前用完；IGR 與 hypoelastic dual-pass HLLD（第二次 finalize 會重填 flux_n）不啟用。副作用：少配置一份 sys_size 個場的 flux。
 
@@ -144,7 +144,7 @@ finalize 的 6 個 kernel（每方向 flux 一個、flux_src 一個）從 nsys �
 ## 4.4 WENO 輸入每個 RHS 只 pack 一次（commit `bbc66c82`）
 
 - `src/simulation/m_weno.fpp:27-32, 1010-1016`：記住 `v_rs_weno` 目前裝的是哪一組場（第一個場的 pointer 與個數），同一組就跳過 `s_pack_weno_input_arr`。
-- `src/simulation/m_weno.fpp:921-927` 新增 `s_weno_input_changed`；`src/simulation/m_rhs.fpp:695-696` 在每次 RHS 重新計算 `q_prim_qp`（cons→prim + halo）之後呼叫。
+- `src/simulation/m_weno.fpp:921-927` 新增 `s_weno_input_changed`；`src/simulation/m_rhs.fpp:696-697` 在每次 RHS 重新計算 `q_prim_qp`（cons→prim + halo）之後呼叫。
 - 其他呼叫（viscous 梯度、拆開重建的 surface tension / `weno_Re_flux` 路徑）傳入不同的場組合，仍然每次重新 pack，行為不變。
 
 證據：
@@ -176,7 +176,7 @@ register 上限掃描（都套在 commit 4 之上，`bench_final`，5 次中位�
 
 ## 4.6 Streaming kernel：每個 thread 一個 cell（commit `8cd486ab`）
 
-RHS 複製（`m_rhs.fpp:646-656`）、三個方向的 flux difference（`m_rhs.fpp:1157-1170, 1234-1247, 1397-1410`）與 RK 更新
+RHS 複製（`m_rhs.fpp:646-656`）、三個方向的 flux difference（`m_rhs.fpp:1158-1171, 1235-1248, 1398-1411`）與 RK 更新
 （`m_time_steppers.fpp:486-506`）原本是 `collapse(4)` 遍歷（方程, z, y, x）：每個元素都要從攤平的 index 還原 4 個 index
 （`s_compute_rhs` 的 loop index 是 64-bit，等於 64-bit 除法）並重新讀 derived type 的 descriptor，ncu 量到每個元素約
 250–320 條指令、DRAM 只用 31–41%。改成 `collapse(3)` 遍歷 cell、thread 內循序跑 8 條方程式，算術完全不變。
@@ -254,21 +254,28 @@ nsys 每個 RK stage 的 kernel 時間（`hw/results/raw/prof_final`，同一個
 pre_process 產生初始條件。變數：`rdma_mpi`（F：halo 先 D2H 再走 host MPI；T：GPU-aware MPI，HPC-X/UCX 直接傳 device buffer）
 與 binding（none：`--bind-to none`；numa：每個 NUMA domain 4 個 rank 並綁在該 domain，GPU 0–3 在 NUMA 0、4–7 在 NUMA 1）。
 
-**整節點 8 卡 job（`mgpu8`，job 783997，節點獨佔）**，baseline 與 commit 4（`pack`）：
+**最終結果：整節點 8 卡 job（`hw/results/raw/mgpu_final`，job 785522，node 25a-hgpn059 獨佔，GPU 間 NVLink NV18）**，baseline 與最終版：
 
-| GPUs | base rdma=F | base rdma=T | pack rdma=F | pack rdma=T | pack rdma=T + numa |
-|---:|---:|---:|---:|---:|---:|
-| 1 | 0.4032 | 0.4033 | 0.3160 | 0.3158 | — |
-| 2 | 0.2552 | 0.2158 | 0.2106 | 0.1712 | 0.1703 |
-| 4 | 0.1600 | 0.1204 | 0.1360 | 0.0963 | 0.0960 |
-| 8 | 0.1130 | 0.0718 | 0.1053 | 0.0586 | 0.0587 |
+| GPUs | base rdma=F | base rdma=T | base rdma=T + numa | final rdma=F | final rdma=F + numa | final rdma=T | final rdma=T + numa |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 0.4029 | 0.4030 | — | 0.2581 | — | 0.2580 | — |
+| 2 | 0.2523 | 0.2155 | 0.2155 | 0.1675 | 0.1667 | 0.1403 | 0.1401 |
+| 4 | 0.1598 | 0.1205 | 0.1193 | 0.1150 | 0.1112 | 0.0817 | 0.0808 |
+| 8 | 0.1132 | 0.0716 | 0.0710 | 0.0933 | 0.0856 | **0.0512** | **0.0512** |
 
-- **GPU-aware MPI 是多卡時最大的槓桿**：8 卡時 rdma_mpi=T 比 F 快 36%（base）／44%（pack）。rdma=F 時每次 halo exchange 都要 D2H、host MPI、H2D。
-- **NUMA binding**：rdma=F 時有幫助（8 卡 base 0.1130 → 0.1087，pack 0.1053 → 0.0949，因為 host staging 走對的 socket），rdma=T 時沒有差別（資料不經過 host）。
-- 8 卡 + rdma=T 的平行效率：base 0.4032 / (8 × 0.0718) = 70%，pack 0.3160 / (8 × 0.0586) = 67%。單卡越快，halo exchange 占比越高，效率略降——與 HW-1 的結論一致。
-- 多 rank 的正確性：每個 (版本, 卡數, rdma) 的最終守恆量都與同一版本 1 卡的結果**逐 byte 相同**（`compare_final_*.txt`，16 個比較）。
+| 8 卡比較 | 值 |
+|---|---|
+| 預設設定（base、rdma=F、no binding） | 0.1132 ns |
+| 只開 GPU-aware MPI（base、rdma=T） | 0.0716 ns（1.58×） |
+| 程式優化 + rdma=T | **0.0512 ns（相對預設 2.21×；相對 base rdma=T 1.40×）** |
+| 平行效率（1 卡 / (8 × 8 卡)，rdma=T） | base 70%、final 63% |
+| 相對單卡 baseline（0.4029） | 7.87× |
 
-@@MGPU_FINAL@@
+- **GPU-aware MPI 是多卡時最大的槓桿**：8 卡時 rdma_mpi=T 比 F 快 37%（base）／45%（final）。rdma=F 時每次 halo exchange 都要 D2H、host MPI、H2D，程式越快這段固定成本占比越高。
+- **NUMA binding**：rdma=F 時有幫助（8 卡 base 0.1132 → 0.1048，final 0.0933 → 0.0856；推測是 host staging 走到 GPU 所在的 socket，[推論]），rdma=T 時幾乎沒有差別（資料不經過 host）。
+- 單卡快 1.56× 的程式優化，在 8 卡 rdma=T 時剩 1.40×：kernel 時間縮短後 halo exchange 占比變高，平行效率從 70% 降到 63%，與 HW-1「GPU 越快，通訊越顯眼」的結論一致。下一步應該是讓 halo exchange 與 interior 計算重疊。
+- 多 rank 的正確性：每個（版本、卡數、rdma）的最終守恆量都與同一版本 1 卡的結果**逐 byte 相同**（`compare_final_*.txt`，16 個比較）。
+- 較早的同類 job（`mgpu8`，job 783997，base 與 commit 4）的 base 數值在 1% 內重現（例如 8 卡 rdma=T：0.0718 vs 0.0716）。
 
 # 7. 負面結果與沒有採用的實驗
 
@@ -278,9 +285,9 @@ pre_process 產生初始條件。變數：`rdma_mpi`（F：halo 先 D2H 再走 h
 | WENO5 `collapse(4)`（每個 thread 一個變數 × cell，branch `exp-weno4`） | 0.3428 vs 0.3153，**慢 8.7%** | registers 188 → 130–140、occupancy 12.5 → 18.8%，但 warp 指令數 0.8 G → 1.45 G：每個變數都重新載入 stencil 係數與重算 index，FP64 pipe 29 → 23–26% | 不合併 |
 | WENO `maxregcount:96` / `160` | 0.2965 / 0.2825，都比 128（0.2774）差 | 160：occupancy 只有 18.75%；96：推測是 spill 更多（未做 ncu） | 選 128 |
 | `maxregcount` 全域套用 | 未採用 | HLLC 需要 146–156 registers，全域上限會讓它 spill；所以只對 `m_weno` 單一檔案設定 | 只設定 per-file |
-| 4 卡 scaling job（`mgpu4`） | 1 卡就 2.18 ns，是其他所有量測的 5 倍 | 與 regression test job 同時在同一節點（25a-hgpn009）；原因未查明 | 整批丟棄，只用整節點 8 卡 job |
+| 4 卡 scaling job（`mgpu4`，`mgpu4_final`），節點與其他 job 共用 | `mgpu4`：1 卡就 2.18 ns（其他量測的 5 倍）；`mgpu4_final`：1 卡 0.454 / 0.308 ns（比獨佔節點慢 12–19%），rdma=F 的 2 卡甚至比 1 卡慢（0.50 ns） | 兩次都和其他 job 共用節點（25a-hgpn009、hgpn039）；rdma=F 的 halo 要走 host，對 host 端競爭最敏感 [推論]。rdma=T 的結果與 8 卡 job 趨勢一致 | 不採用，只用獨佔節點的 8 卡 job；資料留在 `hw/results/raw/` |
 
-沒做的部分：§3 的 flux difference + advection source 融合（約 0.7 ms/stage，需要改動多種 `adv_src_mode` 分支）、
+沒做的部分：第二個 benchmark case（作業列為選擇性；時間優先留給 regression suite 與多 GPU 量測）、§3 的 flux difference + advection source 融合（約 0.7 ms/stage，需要改動多種 `adv_src_mode` 分支）、
 RHS 複製改成 alias（`q_cons_qp` 的 adv 欄位被 halo 填值，需要更仔細的證明），以及 NVHPC 25.9 vs 26.3 的比較，都因時間留給量測與正確性驗證而沒有做。
 
 # 8. AI agent 的使用方式
